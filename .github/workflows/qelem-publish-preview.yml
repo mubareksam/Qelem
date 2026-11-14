@@ -1,4 +1,4 @@
-name: Publish Qelem 1.5 Android preview to branch
+name: Publish built Qelem timeline previews to branch
 on:
   push:
     branches: [arena/412bd2e9-prodesign]
@@ -17,9 +17,15 @@ jobs:
         with:
           name: Qelem-native-preview-arm64
           path: /tmp/qelem-native
-          run-id: 43639477326
+          run-id: 43640871617
           github-token: ${{ github.token }}
-      - name: Verify Qelem 1.5 Android preview
+      - uses: actions/download-artifact@v4
+        with:
+          name: Qelem-Windows-preview
+          path: /tmp/qelem-windows
+          run-id: 43640871548
+          github-token: ${{ github.token }}
+      - name: Verify and package previews
         run: |
           set -euo pipefail
           (cd /tmp/qelem-native && sha256sum -c SHA256SUMS.txt)
@@ -30,22 +36,34 @@ jobs:
           grep "package: name='com.qalam.studio.nativepreview.debug' versionCode='10500012' versionName='1.5-preview'" /tmp/badging.txt
           grep "native-code: 'arm64-v8a'" /tmp/badging.txt
           unzip -l "$APK" | grep 'lib/arm64-v8a/libprocraft_core.so'
-          cp "$APK" artifacts/releases/Qelem-1.5-preview-Android-arm64.apk
+          python3 - <<'PY'
+          import struct
+          for name in ('Qelem-Windows-preview.exe', 'Qelem-Tablet-Server.exe'):
+              data = open('/tmp/qelem-windows/' + name, 'rb').read()
+              assert data[:2] == b'MZ'
+              pe = struct.unpack_from('<I', data, 0x3c)[0]
+              assert data[pe:pe+4] == b'PE\0\0'
+              assert struct.unpack_from('<H', data, pe+4)[0] == 0x8664
+              assert struct.unpack_from('<H', data, pe+0x5c)[0] == 2
+          PY
+          cp "$APK" artifacts/Qelem-Android-batch-selection-preview-arm64.apk
+          (cd /tmp/qelem-windows && zip -q -9 "$GITHUB_WORKSPACE/artifacts/Qelem-Windows-batch-selection-preview-x64.zip" Qelem-Windows-preview.exe Qelem-Tablet-Server.exe README.txt LICENSE-MIT LICENSE-APACHE NOTICE ATTRIBUTION.md QRCODE-LICENSE.txt)
           {
-            echo 'Qelem 1.5 Android native development preview'
-            echo 'Source commit: a6f79bb3164dd54b487523996a399ae55a6acd30'
-            echo 'Android build: https://github.com/mubareksam/Qelem/actions/runs/43639477326'
-            echo 'Debug signed, separate package, no old Qelem gallery importer. Not an upgrade.'
-            echo 'No physical device verification. Back up artwork; keep the original app installed.'
-            (cd artifacts/releases && sha256sum Qelem-1.5-preview-Android-arm64.apk)
+            echo 'Qelem post-1.5 Windows and Android batch selection development previews'
+            echo 'Source commit: d4e047b894c9f246d3ad35b83ddd5658ac3e7845'
+            echo 'Android build: https://github.com/mubareksam/Qelem/actions/runs/43640871617'
+            echo 'Windows build: https://github.com/mubareksam/Qelem/actions/runs/43640871548'
+            echo 'Windows binaries unsigned. Android debug signed and separately packaged; not an upgrade.'
+            echo 'Physical device testing required. Back up artwork and keep the original app installed.'
+            (cd artifacts && sha256sum Qelem-Android-batch-selection-preview-arm64.apk Qelem-Windows-batch-selection-preview-x64.zip)
             cat /tmp/signature.txt
             grep -E "^(package:|sdkVersion:|targetSdkVersion:|application-label:|native-code:)" /tmp/badging.txt
-          } > artifacts/releases/Qelem-1.5-preview-Android-arm64.txt
-      - name: Commit preview to current branch
+          } > artifacts/Qelem-batch-selection-Windows-Android-preview.txt
+      - name: Commit previews to current branch
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add artifacts/releases/Qelem-1.5-preview-Android-arm64.apk artifacts/releases/Qelem-1.5-preview-Android-arm64.txt
-          git commit -m 'Add Qelem 1.5 Android native preview APK'
+          git add artifacts/Qelem-Android-batch-selection-preview-arm64.apk artifacts/Qelem-Windows-batch-selection-preview-x64.zip artifacts/Qelem-batch-selection-Windows-Android-preview.txt
+          git commit -m 'Add Windows and Android batch selection previews'
           git push origin HEAD:arena/412bd2e9-prodesign
