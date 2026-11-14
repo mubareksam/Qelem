@@ -1,0 +1,31 @@
+Qelem post-1.5 Windows and Android batch selection development previews
+Source commit: d4e047b894c9f246d3ad35b83ddd5658ac3e7845
+Android build: https://github.com/mubareksam/Qelem/actions/runs/43640871617
+Windows build: https://github.com/mubareksam/Qelem/actions/runs/43640871548
+Windows binaries unsigned. Android debug signed and separately packaged; not an upgrade.
+Physical device testing required. Back up artwork and keep the original app installed.
+4257fb12072b2d2a79a1b057ed832d339f6c2e65246cd20f77c7dbc350fc245e  Qelem-Android-batch-selection-preview-arm64.apk
+10139b92e0bd8b68fa17ef7beeedbd7a7ee409b328cda5008a2524acdd0bc8b6  Qelem-Windows-batch-selection-preview-x64.zip
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v3.2 scheme (APK Signature Scheme v3.2): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+V2 Signer: certificate DN: C=US, O=Android, CN=Android Debug
+V2 Signer: certificate SHA-256 digest: 3a752ff1d06c48cba4a4fd21ebe3a22bffbbce3fc4681406566c9db687fd0066
+V2 Signer: certificate SHA-1 digest: c2c8f1e93089303993b2747932367c15f5c09cd1
+V2 Signer: certificate MD5 digest: da8782088353477fa84950be6f80b4ed
+V2 Signer: key algorithm: RSA
+V2 Signer: key size (bits): 2048
+V2 Signer: public key SHA-256 digest: 08898ee44cce626dd1fd05617104c7434a2138e4cb5981c24aac7d8278b334e4
+V2 Signer: public key SHA-1 digest: 26e4327ed98ffd1b79fa6c2ca884b32c2cbddabc
+V2 Signer: public key MD5 digest: 66280cf30525523407835ab8970fa249
+package: name='com.qalam.studio.nativepreview.debug' versionCode='10500012' versionName='1.5-preview' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'
+sdkVersion:'28'
+targetSdkVersion:'36'
+application-label:'Qelem'
+native-code: 'arm64-v8a'
