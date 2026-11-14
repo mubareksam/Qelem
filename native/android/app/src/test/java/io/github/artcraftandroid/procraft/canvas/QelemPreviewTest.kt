@@ -56,6 +56,13 @@ class QelemPreviewTest {
         assertEquals(setOf(8uL), qelemToggleFrameSelection(both, 7uL))
         assertEquals(both, qelemToggleFrameSelection(both, null))
     }
+    @Test fun invertSelectionOnlyUsesCurrentVisibleFrameIds() {
+        val frames = listOf(7uL, 8uL, 9uL)
+        assertEquals(setOf(7uL, 8uL, 9uL), qelemInvertFrameSelection(frames, emptySet()))
+        assertEquals(setOf(7uL, 9uL), qelemInvertFrameSelection(frames, setOf(8uL, 42uL)))
+        assertEquals(emptySet<ULong>(), qelemInvertFrameSelection(emptyList(), setOf(7uL)))
+        assertEquals(setOf(8uL), qelemInvertFrameSelection(frames, qelemInvertFrameSelection(frames, setOf(8uL))))
+    }
     @Test fun timingRespectsPreviewSpeedAndBounce() {
         assertEquals(200L, qelemPreviewDelayMs(10, 50))
         assertEquals(100L, qelemPreviewDelayMs(10, 100))

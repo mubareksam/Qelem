@@ -75,3 +75,7 @@ internal fun qelemHeldOffset(id: ULong?, remembered: ULong?, offset: Int, frame:
 /** All held slots share the same frame ID; toggling any of them toggles that frame once. */
 internal fun qelemToggleFrameSelection(selected: Set<ULong>, id: ULong?): Set<ULong> =
     if (id == null) selected else if (id in selected) selected - id else selected + id
+
+/** Invert the temporary selection among the current visible frame IDs only. */
+internal fun qelemInvertFrameSelection(frames: List<ULong>, selected: Set<ULong>): Set<ULong> =
+    frames.filterNot { it in selected }.toSet()

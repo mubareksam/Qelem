@@ -81,6 +81,7 @@ import io.github.artcraftandroid.procraft.canvas.qelemTimelineTime
 import io.github.artcraftandroid.procraft.canvas.QelemRulerItem
 import io.github.artcraftandroid.procraft.canvas.qelemRulerSlot
 import io.github.artcraftandroid.procraft.canvas.qelemToggleFrameSelection
+import io.github.artcraftandroid.procraft.canvas.qelemInvertFrameSelection
 import io.github.artcraftandroid.procraft.core.AnimationPlayback
 import kotlin.math.floor
 import kotlin.math.roundToInt
@@ -280,6 +281,7 @@ private fun BoxScope.StudioTimelineBar(vm: CanvasViewModel, compact: () -> Unit)
                     StudioControl("Done", "Finish selecting frames", active = true) { selecting = false; chosenFrames = emptySet() }
                     StudioControl("All", "Select all visible frames") { chosenFrames = vm.animationFrames.toSet() }
                     StudioControl("Clear", "Clear frame selection") { chosenFrames = emptySet() }
+                    StudioControl("Invert", "Invert selection of visible frames") { chosenFrames = qelemInvertFrameSelection(vm.animationFrames, chosenFrames) }
                     StudioControl("− Hold", "Shorten selected frame durations") { vm.adjustSelectedHolds(chosenFrames, false) }
                     StudioControl("+ Hold", "Lengthen selected frame durations") { vm.adjustSelectedHolds(chosenFrames, true) }
                     StudioControl(if (zoomed) "− Zoom" else "+ Zoom", "Change timeline zoom") { zoomed = !zoomed }

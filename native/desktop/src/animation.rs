@@ -3,7 +3,7 @@
 //! second, onion skins, the onion skins' colours) or the current frame's options stand on it.
 //! Page Assist shows the same bar with pages.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 use egui::emath::TSTransform;
@@ -84,6 +84,9 @@ pub struct AnimationBar {
     pub run_action: Option<String>,
     /// Expanded workspace is a view of the same frame layers; Page Assist stays compact.
     studio: bool,
+    /// Temporary multi-frame edit selection, separate from the document's layer selection.
+    selecting: bool,
+    selected_frames: HashSet<u64>,
     settings_open: bool,
     options_open: bool,
     /// The onion skins' colours page, editing the colour after the current frame (else before).
@@ -119,9 +122,25 @@ fn timeline_time(slot: usize, fps: u32) -> String {
     format!("{}:{:02}:{:02}", seconds / 60, seconds % 60, slot % fps)
 }
 
+/// Only IDs from the current visible frame list may be sent to a batch edit.
+fn ordered_selection(frames: &[u64], selected: &HashSet<u64>) -> Vec<u64> {
+    frames.iter().copied().filter(|id| selected.contains(id)).collect()
+}
+
+fn toggle_selection(selected: &mut HashSet<u64>, id: Option<u64>) {
+    if let Some(id) = id {
+        if !selected.insert(id) { selected.remove(&id); }
+    }
+}
+
+fn invert_selection(frames: &[u64], selected: &HashSet<u64>) -> HashSet<u64> {
+    frames.iter().copied().filter(|id| !selected.contains(id)).collect()
+}
+
 #[cfg(test)]
 mod timeline_navigation_tests {
-    use super::{slot_of, step_slot, timeline_time};
+    use super::{invert_selection, ordered_selection, slot_of, step_slot, timeline_time, toggle_selection};
+    use std::collections::HashSet;
     #[test]
     fn steps_and_time_include_held_slots_and_clamp() {
         let slots = [0, 0, 1, 2, 2];
@@ -134,6 +153,21 @@ mod timeline_navigation_tests {
         assert_eq!(slot_of(&slots, 2, Some(8), (Some(42), 1)), Some(3));
         assert_eq!(timeline_time(25, 24), "0:01:01");
         assert_eq!(timeline_time(1440, 24), "1:00:00");
+    }
+    #[test]
+    fn selection_is_by_frame_id_not_held_slot_and_inverts_visible_ids() {
+        let frames = [9, 7, 4];
+        let mut selected = HashSet::new();
+        toggle_selection(&mut selected, Some(7));
+        toggle_selection(&mut selected, Some(9));
+        toggle_selection(&mut selected, None);
+        assert_eq!(ordered_selection(&frames, &selected), vec![9, 7]);
+        // A second click on any held slot of frame 7 toggles the same ID.
+        toggle_selection(&mut selected, Some(7));
+        selected.insert(99); // Removed or hidden frame must not be edited.
+        assert_eq!(ordered_selection(&frames, &selected), vec![9]);
+        assert_eq!(invert_selection(&frames, &selected), HashSet::from([7, 4]));
+        assert_eq!(invert_selection(&[], &selected), HashSet::new());
     }
 }
 
@@ -154,6 +188,17 @@ impl AnimationBar {
         self.settings_open = false;
         self.options_open = false;
         self.colours = None;
+        self.end_selection();
+    }
+
+    fn end_selection(&mut self) {
+        if self.selecting {
+            self.selecting = false;
+            self.selected_frames.clear();
+            self.track.dragging = false;
+            self.track.slide = None;
+            self.track.focus = None;
+        }
     }
 
     fn stop(&mut self, session: &CanvasSession) {
@@ -178,7 +223,7 @@ impl AnimationBar {
         harmony: HarmonyKind,
     ) -> Option<Said> {
         let Some(settings) = session.animation_settings() else {
-            if self.playing.is_some() || self.settings_open || self.options_open {
+            if self.playing.is_some() || self.settings_open || self.options_open || self.selecting {
                 self.reset(session);
             }
             return None;
@@ -189,9 +234,12 @@ impl AnimationBar {
         self.play_on(ctx, session, &settings);
         self.read_thumbs(ctx, session, &frames);
         let screen = ctx.content_rect();
+        self.selected_frames.retain(|id| frames.contains(id));
         if self.studio && !settings.pages && screen.width() >= 520.0 && screen.height() >= 300.0 {
             return self.show_studio(ctx, look, session, palettes, harmony, &settings, &frames, &slots, current);
         }
+        // A small window or Page Assist falls back to compact mode, which has no selection UI.
+        self.end_selection();
         let width = if screen.width() > screen.height() { WIDE_BAR } else { UPRIGHT_BAR };
         let bar = Rect::from_min_size(
             pos2(screen.center().x - width / 2.0, screen.bottom() - BAR_GAP - BAR_HEIGHT),
@@ -310,55 +358,91 @@ impl AnimationBar {
                 text(ui.painter(), r.center(), Align2::CENTER_CENTER, label, 14.0, Weight::Regular, color);
                 ui.interact(r, ui.scope_id().with(hint), Sense::click()).on_hover_text(hint).clicked()
             };
-            let mut jump = None;
-            if button(ui, 8.0, 5.0, 40.0, "|‹", "First timeline slot", false) { jump = Some(0); }
-            if button(ui, 48.0, 5.0, 40.0, "‹", "Previous timeline slot", false) { jump = step_slot(focus, slots.len(), -1); }
-            let playing = self.playing.is_some();
-            if button(ui, 90.0, 5.0, 55.0, if playing { "Pause" } else { "Play" }, if playing { "Pause animation" } else { "Play animation" }, true) {
-                if playing { self.stop(session); } else { self.play(ctx, session); }
-            }
-            if button(ui, 147.0, 5.0, 40.0, "›", "Next timeline slot", false) { jump = step_slot(focus, slots.len(), 1); }
-            if button(ui, 187.0, 5.0, 40.0, "›|", "Last timeline slot", false) { jump = slots.len().checked_sub(1); }
-            if let Some(slot) = jump.filter(|i| *i < slots.len()) {
-                self.stop(session);
-                self.settings_open = false; self.options_open = false;
-                self.go_to(session, frames, slots, slot, current);
-            }
-            let time = timeline_time(focus, settings.fps);
-            text(ui.painter(), pos2(bar.center().x + 55.0, bar.top() + 24.0), Align2::CENTER_CENTER, &time, 15.0, Weight::Bold, argb(BAR_INK));
-            if button(ui, width - 85.0, 5.0, 77.0, "Canvas", "Return to compact timeline", false) {
-                self.studio = false; self.settings_open = false; self.options_open = false;
-            }
-            if button(ui, 8.0, 45.0, 65.0, "− Hold", "Shorten frame hold", false) {
-                self.stop(session); self.settings_open = false; self.options_open = false;
-                if let Some(id) = current.and_then(|i| frames.get(i)).copied() { session.adjust_animation_holds(vec![id], false); }
-            }
-            if button(ui, 73.0, 45.0, 65.0, "+ Hold", "Lengthen frame hold", false) {
-                self.stop(session); self.settings_open = false; self.options_open = false;
-                if let Some(id) = current.and_then(|i| frames.get(i)).copied() { session.adjust_animation_holds(vec![id], true); }
-            }
-            for (earlier, x, label, hint) in [(true, 140.0, "‹ Frame", "Move frame earlier"), (false, 220.0, "Frame ›", "Move frame later")] {
-                if button(ui, x, 45.0, 78.0, label, hint, false) {
+            if self.selecting {
+                if button(ui, 8.0, 5.0, 70.0, "Done", "Finish selecting frames", true) { self.end_selection(); }
+                text(ui.painter(), pos2(bar.center().x, bar.top() + 24.0), Align2::CENTER_CENTER, "SELECT FRAMES", 13.0, Weight::Bold, argb(BAR_INK));
+                if button(ui, width - 85.0, 5.0, 77.0, "Canvas", "Return to compact timeline", false) {
+                    self.end_selection(); self.studio = false;
+                }
+                if button(ui, 8.0, 45.0, 54.0, "All", "Select all visible frames", false) {
+                    self.selected_frames = frames.iter().copied().collect();
+                }
+                if button(ui, 62.0, 45.0, 60.0, "Clear", "Clear frame selection", false) { self.selected_frames.clear(); }
+                if button(ui, 122.0, 45.0, 68.0, "Invert", "Invert frame selection", false) {
+                    self.selected_frames = invert_selection(frames, &self.selected_frames);
+                }
+                if button(ui, 192.0, 45.0, 72.0, "− Hold", "Shorten selected frame durations", false) {
+                    let ids = ordered_selection(frames, &self.selected_frames);
+                    if ids.is_empty() { crate::files::say("Select one or more frames first."); }
+                    else { session.adjust_animation_holds(ids, false); }
+                }
+                if button(ui, 264.0, 45.0, 72.0, "+ Hold", "Lengthen selected frame durations", false) {
+                    let ids = ordered_selection(frames, &self.selected_frames);
+                    if ids.is_empty() { crate::files::say("Select one or more frames first."); }
+                    else { session.adjust_animation_holds(ids, true); }
+                }
+                let count = format!("{} selected", self.selected_frames.len());
+                text(ui.painter(), pos2(bar.right() - 12.0, bar.top() + 64.0), Align2::RIGHT_CENTER, &count, 13.0, Weight::Regular, argb(BAR_INK));
+            } else {
+                let mut jump = None;
+                if button(ui, 8.0, 5.0, 40.0, "|‹", "First timeline slot", false) { jump = Some(0); }
+                if button(ui, 48.0, 5.0, 40.0, "‹", "Previous timeline slot", false) { jump = step_slot(focus, slots.len(), -1); }
+                let playing = self.playing.is_some();
+                if button(ui, 90.0, 5.0, 55.0, if playing { "Pause" } else { "Play" }, if playing { "Pause animation" } else { "Play animation" }, true) {
+                    if playing { self.stop(session); } else { self.play(ctx, session); }
+                }
+                if button(ui, 147.0, 5.0, 40.0, "›", "Next timeline slot", false) { jump = step_slot(focus, slots.len(), 1); }
+                if button(ui, 187.0, 5.0, 40.0, "›|", "Last timeline slot", false) { jump = slots.len().checked_sub(1); }
+                if let Some(slot) = jump.filter(|i| *i < slots.len()) {
+                    self.stop(session);
+                    self.settings_open = false; self.options_open = false;
+                    self.go_to(session, frames, slots, slot, current);
+                }
+                let time = timeline_time(focus, settings.fps);
+                let time_x = (227.0 + width - 165.0) / 2.0;
+                text(ui.painter(), pos2(bar.left() + time_x, bar.top() + 24.0), Align2::CENTER_CENTER, &time, 15.0, Weight::Bold, argb(BAR_INK));
+                if button(ui, width - 165.0, 5.0, 80.0, "Select", "Select frames to edit together", false) {
                     self.stop(session); self.settings_open = false; self.options_open = false;
-                    if let Some(id) = current.and_then(|i| frames.get(i)).copied() {
-                        if !session.move_animation_frame(id, earlier) {
-                            crate::files::say("Cannot move at an end, across a pinned frame, or with top-level clipping.");
+                    self.track.dragging = false; self.track.slide = None;
+                    session.set_play_frame(None);
+                    self.selected_frames.clear(); self.selecting = true;
+                }
+                if button(ui, width - 85.0, 5.0, 77.0, "Canvas", "Return to compact timeline", false) {
+                    self.studio = false; self.settings_open = false; self.options_open = false;
+                }
+                if button(ui, 8.0, 45.0, 65.0, "− Hold", "Shorten frame hold", false) {
+                    self.stop(session); self.settings_open = false; self.options_open = false;
+                    if let Some(id) = current.and_then(|i| frames.get(i)).copied() { session.adjust_animation_holds(vec![id], false); }
+                }
+                if button(ui, 73.0, 45.0, 65.0, "+ Hold", "Lengthen frame hold", false) {
+                    self.stop(session); self.settings_open = false; self.options_open = false;
+                    if let Some(id) = current.and_then(|i| frames.get(i)).copied() { session.adjust_animation_holds(vec![id], true); }
+                }
+                for (earlier, x, label, hint) in [(true, 140.0, "‹ Frame", "Move frame earlier"), (false, 220.0, "Frame ›", "Move frame later")] {
+                    if button(ui, x, 45.0, 78.0, label, hint, false) {
+                        self.stop(session); self.settings_open = false; self.options_open = false;
+                        if let Some(id) = current.and_then(|i| frames.get(i)).copied() {
+                            if !session.move_animation_frame(id, earlier) {
+                                crate::files::say("Cannot move at an end, across a pinned frame, or with top-level clipping.");
+                            }
                         }
                     }
                 }
-            }
-            if button(ui, 302.0, 45.0, 80.0, "Settings", "Playback and onion skin settings", self.settings_open) {
-                self.settings_open = !self.settings_open; self.options_open = false; self.colours = None;
-            }
-            settings_at = 342.0;
-            if button(ui, width - 100.0, 45.0, 92.0, "+ Frame", "Add a frame", false) {
-                self.stop(session); self.options_open = false; self.settings_open = false;
-                if session.add_frame() == 0 { said = Some(Said::NoRoom); }
+                if button(ui, 302.0, 45.0, 80.0, "Settings", "Playback and onion skin settings", self.settings_open) {
+                    self.settings_open = !self.settings_open; self.options_open = false; self.colours = None;
+                }
+                settings_at = 342.0;
+                if button(ui, width - 100.0, 45.0, 92.0, "+ Frame", "Add a frame", false) {
+                    self.stop(session); self.options_open = false; self.settings_open = false;
+                    if session.add_frame() == 0 { said = Some(Said::NoRoom); }
+                }
             }
             let track = Rect::from_min_size(bar.min + vec2(12.0, 96.0), vec2(width - 24.0, 44.0));
             self.timeline(ui, session, frames, slots, current, track);
         });
-        if (self.settings_open || self.options_open) && !self.takes_keys() && crate::ui::escape(ctx) && self.colours.take().is_none() {
+        if self.selecting && crate::ui::escape(ctx) {
+            self.end_selection();
+        } else if (self.settings_open || self.options_open) && !self.takes_keys() && crate::ui::escape(ctx) && self.colours.take().is_none() {
             self.settings_open = false; self.options_open = false;
         }
         if self.settings_open {
@@ -462,8 +546,9 @@ impl AnimationBar {
         let frame_width = FRAME_HEIGHT * aspect + 1.0;
         let pitch = frame_width + 1.0;
         let t = &mut self.track;
+        if self.selecting { t.at = t.at.clamp(0.0, last); }
         // played frames step; a frame chosen or added slides into the middle (a drag takes over)
-        if !t.dragging && t.focus != Some(focus) {
+        if !self.selecting && !t.dragging && t.focus != Some(focus) {
             if self.playing.is_some() || t.focus.is_none() {
                 t.at = focus as f32;
                 t.slide = None;
@@ -495,9 +580,12 @@ impl AnimationBar {
         if t.dragging {
             if response.dragged() {
                 let to = t.at - response.drag_delta().x / pitch;
-                scrub(t, to);
+                if self.selecting { t.at = to.clamp(0.0, last); } else { scrub(t, to); }
             }
-            if response.drag_stopped() {
+            if response.drag_stopped() && self.selecting {
+                t.dragging = false;
+                t.slide = None;
+            } else if response.drag_stopped() {
                 // coasting as far as its speed carries it, then settling on a frame
                 let velocity = ui.input(|i| i.pointer.velocity().x);
                 let target = (t.at - velocity / pitch / 4.2).round().clamp(0.0, last);
@@ -546,7 +634,8 @@ impl AnimationBar {
                     Color32::WHITE,
                 );
             }
-            painter.rect_stroke(card, 6, Stroke::new(1.0, argb(FRAME_EDGE)), egui::StrokeKind::Inside);
+            let selected = self.selecting && frames.get(*frame).is_some_and(|id| self.selected_frames.contains(id));
+            painter.rect_stroke(card, 6, Stroke::new(if selected { 3.0 } else { 1.0 }, if selected { argb(pc::ACCENT) } else { argb(FRAME_EDGE) }), egui::StrokeKind::Inside);
             if response.clicked() && response.interact_pointer_pos().is_some_and(|p| card.contains(p)) {
                 tapped = Some(i);
             }
@@ -561,6 +650,10 @@ impl AnimationBar {
             session.set_play_frame(None);
         }
         if let Some(i) = tapped {
+            if self.selecting {
+                toggle_selection(&mut self.selected_frames, slots.get(i).and_then(|frame| frames.get(*frame)).copied());
+                return;
+            }
             if self.playing.take().is_some() {
                 session.set_play_frame(None);
             }

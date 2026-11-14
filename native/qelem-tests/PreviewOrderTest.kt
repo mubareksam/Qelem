@@ -34,5 +34,6 @@ fun main() {
     val ruler = listOf(QelemRulerItem(2, -20, 60), QelemRulerItem(3, 40, 60))
     check(qelemRulerSlot(39f, 5, ruler) == 2 && qelemRulerSlot(40f, 5, ruler) == 3)
     check(qelemRulerSlot(Float.NaN, 5, ruler) == null)
+    check(qelemInvertFrameSelection(listOf(10uL, 20uL, 30uL), setOf(20uL, 99uL)) == setOf(10uL, 30uL))
     println("Qelem preview: reversal, held slots, ID-based range, speed and cycle timing passed")
 }
