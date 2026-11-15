@@ -168,7 +168,10 @@ private fun displayWidth(window: Dp): Dp {
 @Composable
 fun BoxScope.AnimationBar(vm: CanvasViewModel) {
     if (vm.animation == null) return
-    var studioTimeline by rememberSaveable { mutableStateOf(false) }
+    // A new saveable key prevents a prior compact choice from hiding the refreshed layout
+    // on the first launch of this preview. Canvas still lets the user choose compact mode.
+    val roomyForTimeline = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp >= 360
+    var studioTimeline by rememberSaveable(key = "qelem_studio_timeline_v2") { mutableStateOf(roomyForTimeline) }
     if (studioTimeline && vm.animation?.pages == false) {
         StudioTimelineBar(vm) { studioTimeline = false }
         return

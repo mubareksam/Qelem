@@ -18,8 +18,7 @@ stage/timeline split. These are workflow references, not features Qelem already 
 
 ## Implemented so far
 
-- Actions → Canvas → Animation Assist enables the existing frame/group animation; ▥ opens
-  Qelem's expanded timeline and Compact returns to the original drawing-oriented layout.
+- On Android, Actions → Canvas → Animation Assist opens the expanded drawing timeline by default on screens at least 360 dp tall. Canvas returns to the compact bar and ▥ reopens the expanded timeline. Shorter windows start compact to preserve canvas space. Windows still opens its expanded view through Timeline on the compact bar.
 - One actual drawing track, a synchronized time ruler, highlighted playhead, zoom and track
   height, previews and held-frame markers. Scroll the track horizontally; tap or drag the
   ruler to preview frames, then release to select. Cancelled scrubs restore the prior frame.
@@ -77,3 +76,9 @@ The tutorial also distinguishes artwork content from non-destructive keyframe tr
 ### Screenshot-guided timeline styling
 
 Using the supplied tutorial screenshots as a visual reference, the expanded Qelem timeline on Android and Windows now uses a darker, flatter, wider workspace surface, quieter track/ruler contrast, a left-anchored Android timecode, and a visible playhead over the drawing track. Windows uses more available window width and shows thumbnails in held slots. The existing amber accent and Qelem's own controls remain, as do compact Animation Assist and Page Assist. The playhead is a visual overlay; the existing ruler/track interactions still own input. This restyles the existing single-track overlay; it does not introduce a separate stage, movie gallery, independent tracks, movie settings or keyframes shown in the reference. Real Android/Windows device checks are still needed for layout, color, scrolling, gestures, accessibility and screen sizes.
+
+### Android timeline visibility preview
+
+The refreshed Android timeline now opens by default when Animation Assist is enabled in a window at least 360 dp tall. The Canvas button returns to the compact bar, and its ▥ control reopens Timeline. Page Assist is unchanged. Smaller windows initially use the compact layout; users can still open Timeline manually. This is still an overlay on the existing drawing canvas, not a new Dreams-style movie editor. Screen layout and touch behavior need device testing.
+
+This CI debug preview uses a distinct application ID and launcher label to install beside earlier native previews: their ephemeral build signatures differ, so it cannot safely update them. It starts with a separate empty gallery; do not uninstall an older app to install it. No migration has been verified.
