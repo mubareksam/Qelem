@@ -6,6 +6,10 @@ Qelem is an independent Android painting and frame-animation app. This repositor
 
 ## Download Qelem
 
+- **[Android Timeline preview](artifacts/Qelem-Android-timeline-visible-preview-arm64.apk)** — isolated Android 9+ arm64 preview labelled “Qelem Timeline Preview”. Create or open an artwork, then choose **Actions (wrench) → Canvas → Animation Assist** to see the expanded timeline. Tap **Canvas** for the compact bar; tap ▥ to reopen. Short windows start compact.
+
+  **Keep older apps installed.** CI debug builds have different signing keys; this preview installs alongside earlier Qelem previews and has its own empty gallery, not your existing artwork. Back up artwork. It is not a Dreams clone, not a stable release, and has not been verified on a physical device.
+
 - **[Qelem 1.5 native preview](docs/QELEM-1.5-PREVIEW.md)** — Android arm64 and Windows x64 development previews. Not a replacement for earlier Qelem; the native Android app cannot import the old gallery.
 - [Qelem native preview APK — arm64](artifacts/Qelem-native-preview-arm64.apk) — experimental native edition, Android 9 or later; [build and signature details](artifacts/Qelem-native-preview-arm64.txt).
 - [Qelem 7.23 development APK](artifacts/Qelem-7.23-dev.apk) — existing WebView-based Qelem, **not the native edition**.

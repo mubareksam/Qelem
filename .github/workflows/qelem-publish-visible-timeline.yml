@@ -1,0 +1,52 @@
+name: Publish isolated Android timeline preview
+on:
+  push:
+    branches: [arena/412bd2e9-prodesign]
+    paths: ['.github/workflows/qelem-publish-visible-timeline.yml']
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: arena/412bd2e9-prodesign
+      - uses: actions/download-artifact@v4
+        with:
+          name: Qelem-native-preview-arm64
+          path: /tmp/qelem-native
+          run-id: 43710378202
+          github-token: ${{ github.token }}
+      - name: Verify preview
+        run: |
+          set -euo pipefail
+          (cd /tmp/qelem-native && sha256sum -c SHA256SUMS.txt)
+          TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          APK=/tmp/qelem-native/Qelem-native-preview-arm64.apk
+          "$TOOLS/apksigner" verify --verbose --print-certs "$APK" > /tmp/signature.txt
+          "$TOOLS/aapt" dump badging "$APK" > /tmp/badging.txt
+          grep -F "package: name='com.qalam.studio.nativepreview.timeline.debug' versionCode='10500022' versionName='1.5-timeline-preview'" /tmp/badging.txt
+          grep -F "application-label:'Qelem Timeline Preview'" /tmp/badging.txt
+          grep -F "native-code: 'arm64-v8a'" /tmp/badging.txt
+          unzip -l "$APK" | grep 'lib/arm64-v8a/libprocraft_core.so'
+          cp "$APK" artifacts/Qelem-Android-timeline-visible-preview-arm64.apk
+          {
+            echo 'Qelem isolated Android timeline visibility preview'
+            echo 'Source commit: 5238ebd3b8af746a4455f1a5b8cc1dbdc8dd9b41'
+            echo 'Android build and tests: https://github.com/mubareksam/Qelem/actions/runs/43710378202'
+            echo 'Debug signed, separate package and separate gallery. Keep old apps installed and back up artwork.'
+            echo 'No physical device, touch, layout, or migration testing performed.'
+            (cd artifacts && sha256sum Qelem-Android-timeline-visible-preview-arm64.apk)
+            cat /tmp/signature.txt
+            grep -E "^(package:|sdkVersion:|targetSdkVersion:|application-label:|native-code:)" /tmp/badging.txt
+          } > artifacts/Qelem-Android-timeline-visible-preview-arm64.txt
+      - name: Commit preview to branch
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artifacts/Qelem-Android-timeline-visible-preview-arm64.apk artifacts/Qelem-Android-timeline-visible-preview-arm64.txt
+          git commit -m 'Add isolated Android timeline preview'
+          git push origin HEAD:arena/412bd2e9-prodesign
