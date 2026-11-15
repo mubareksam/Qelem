@@ -231,8 +231,9 @@ private fun BoxScope.StudioTimelineBar(vm: CanvasViewModel, compact: () -> Unit)
     // Reserve the timeline's height; popovers scroll rather than pushing controls off-screen.
     val popoverMaxHeight = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp - (if (tallTrack) 330 else 266)).coerceAtLeast(80).dp
     var toolsOpen by remember { mutableStateOf(false) }
+    var onionQuickOpen by remember { mutableStateOf(false) }
     LaunchedEffect(vm.animationSettingsOpen, vm.frameOptionsOpen) {
-        if (vm.animationSettingsOpen || vm.frameOptionsOpen) toolsOpen = false
+        if (vm.animationSettingsOpen || vm.frameOptionsOpen) { toolsOpen = false; onionQuickOpen = false }
     }
     var colorsPage by remember { mutableStateOf(false) }
     if (!vm.animationSettingsOpen) colorsPage = false
@@ -254,6 +255,16 @@ private fun BoxScope.StudioTimelineBar(vm: CanvasViewModel, compact: () -> Unit)
         } else if (vm.frameOptionsOpen) {
             val popupWidth = minOf(260.dp, width)
             DownPopover(popupWidth, popupWidth / 2, Modifier.offset(x = (width - popupWidth) / 2), popoverMaxHeight) { FrameOptionsPage(vm) }
+        } else if (onionQuickOpen && !selecting) {
+            val popupWidth = minOf(260.dp, width)
+            DownPopover(popupWidth, popupWidth / 2, Modifier.offset(x = (width - popupWidth) / 2), popoverMaxHeight) {
+                Text("Onion skins", color = Pc.PanelTitle, fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 14.dp, top = 8.dp, bottom = 8.dp))
+                Group {
+                    ToggleRow("Show onion skins", (vm.animation?.onionFrames ?: 0u) > 0u, 44.dp) { vm.stopPlaying(); vm.toggleOnionSkin() }
+                    RowLine()
+                    StudioMenuItem("Edit playback & onions") { onionQuickOpen = false; vm.stopPlaying(); vm.animationSettingsOpen = true }
+                }
+            }
         } else if (toolsOpen && !selecting) {
             val popupWidth = minOf(280.dp, width)
             DownPopover(popupWidth, popupWidth / 2, Modifier.offset(x = (width - popupWidth) / 2), popoverMaxHeight) {
@@ -277,13 +288,20 @@ private fun BoxScope.StudioTimelineBar(vm: CanvasViewModel, compact: () -> Unit)
         ) {
             // A quiet header leaves the artwork above as the visual focus.
             Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
-                StudioIconButton(StudioGlyph.UNDO, "Undo") { toolsOpen = false; vm.stopPlaying(); vm.undo() }
-                StudioIconButton(StudioGlyph.REDO, "Redo") { toolsOpen = false; vm.stopPlaying(); vm.redo() }
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("TIMELINE", color = BarInk.copy(alpha = 0.75f), fontSize = 9.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
+                StudioIconButton(StudioGlyph.UNDO, "Undo") { onionQuickOpen = false; toolsOpen = false; vm.stopPlaying(); vm.undo() }
+                StudioIconButton(StudioGlyph.REDO, "Redo") { onionQuickOpen = false; toolsOpen = false; vm.stopPlaying(); vm.redo() }
+                Column(
+                    Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(10.dp))
+                        .then(if (selecting) Modifier else Modifier.clickable {
+                            vm.stopPlaying(); toolsOpen = false; vm.frameOptionsOpen = false; vm.animationSettingsOpen = false
+                            onionQuickOpen = !onionQuickOpen
+                        }.semantics { contentDescription = "Timecode ${qelemTimelineTime(focus, fps)}. Onion skin controls." }),
+                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(if (onionQuickOpen) "ONION SKINS" else "TIMELINE", color = BarInk.copy(alpha = 0.75f), fontSize = 9.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                     Text(qelemTimelineTime(focus, fps), color = BarInk, fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
                 }
-                StudioControl("Canvas", "Return to compact canvas timeline") { toolsOpen = false; vm.animationSettingsOpen = false; vm.frameOptionsOpen = false; compact() }
+                StudioControl("Canvas", "Return to compact canvas timeline") { onionQuickOpen = false; toolsOpen = false; vm.animationSettingsOpen = false; vm.frameOptionsOpen = false; compact() }
             }
             if (selecting) {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
@@ -297,20 +315,20 @@ private fun BoxScope.StudioTimelineBar(vm: CanvasViewModel, compact: () -> Unit)
                 }
             } else {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                    StudioIconButton(StudioGlyph.PREVIOUS, "Previous timeline slot") { toolsOpen = false; vm.stepTimeline(-1) }
-                    StudioIconButton(if (vm.playingFrame == null) StudioGlyph.PLAY else StudioGlyph.PAUSE, if (vm.playingFrame == null) "Play animation" else "Pause animation", emphasized = true) { toolsOpen = false; vm.togglePlaying() }
-                    StudioIconButton(StudioGlyph.NEXT, "Next timeline slot") { toolsOpen = false; vm.stepTimeline(1) }
+                    StudioIconButton(StudioGlyph.PREVIOUS, "Previous timeline slot") { onionQuickOpen = false; toolsOpen = false; vm.stepTimeline(-1) }
+                    StudioIconButton(if (vm.playingFrame == null) StudioGlyph.PLAY else StudioGlyph.PAUSE, if (vm.playingFrame == null) "Play animation" else "Pause animation", emphasized = true) { onionQuickOpen = false; toolsOpen = false; vm.togglePlaying() }
+                    StudioIconButton(StudioGlyph.NEXT, "Next timeline slot") { onionQuickOpen = false; toolsOpen = false; vm.stepTimeline(1) }
                     Spacer(Modifier.width(6.dp))
-                    StudioControl("Select", "Select frames to edit together") { toolsOpen = false; vm.stopPlaying(); vm.animationSettingsOpen = false; vm.frameOptionsOpen = false; chosenFrames = emptySet(); selecting = true }
-                    StudioIconButton(StudioGlyph.ADD, "Add a frame") { toolsOpen = false; vm.addFrame() }
-                    StudioControl("Tools", "Open frame and timeline tools", active = toolsOpen) { vm.animationSettingsOpen = false; vm.frameOptionsOpen = false; toolsOpen = !toolsOpen }
+                    StudioControl("Select", "Select frames to edit together") { onionQuickOpen = false; toolsOpen = false; vm.stopPlaying(); vm.animationSettingsOpen = false; vm.frameOptionsOpen = false; chosenFrames = emptySet(); selecting = true }
+                    StudioIconButton(StudioGlyph.ADD, "Add a frame") { onionQuickOpen = false; toolsOpen = false; vm.addFrame() }
+                    StudioControl("Tools", "Open frame and timeline tools", active = toolsOpen) { onionQuickOpen = false; vm.animationSettingsOpen = false; vm.frameOptionsOpen = false; toolsOpen = !toolsOpen }
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (selecting) "${chosenFrames.size} FRAMES SELECTED" else "DRAWING TRACK  ·  PINCH TO ZOOM", color = BarInk, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
                 Text("${if (slots.isEmpty()) 0 else focus + 1}/${slots.size}  ·  $fps fps", color = BarInk, fontSize = 11.sp)
             }
-            StudioRuler(vm, list, slots, focus, fps, !selecting) { scrubSlot = it }
+            StudioRuler(vm, list, slots, focus, fps, !selecting) { scrubSlot = it; if (it != null) onionQuickOpen = false }
             LazyRow(
                 state = list,
                 modifier = Modifier.fillMaxWidth().height(if (tallTrack) 142.dp else 78.dp).clip(RoundedCornerShape(12.dp)).background(TrackFill)
@@ -330,7 +348,7 @@ private fun BoxScope.StudioTimelineBar(vm: CanvasViewModel, compact: () -> Unit)
                             .clickable {
                                 if (selecting) {
                                     chosenFrames = qelemToggleFrameSelection(chosenFrames, id)
-                                } else { toolsOpen = false; vm.tapFrame(index) }
+                                } else { onionQuickOpen = false; toolsOpen = false; vm.tapFrame(index) }
                             }
                             .semantics { contentDescription = "Slot ${index + 1}, frame ${frame + 1}${if (held) ", held" else ""}${if (chosen) ", selected for editing" else if (!selecting && focused) ", current" else ""}" },
                         horizontalAlignment = Alignment.CenterHorizontally,

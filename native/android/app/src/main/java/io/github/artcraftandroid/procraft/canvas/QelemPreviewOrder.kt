@@ -90,3 +90,7 @@ internal fun qelemTimelinePinchLevel(startSpan: Float, currentSpan: Float): Bool
         else -> null
     }
 }
+
+/** Toggle onion skins while retaining the last nonzero frame count for this session. */
+internal fun qelemToggleOnionFrames(current: UInt, remembered: UInt): Pair<UInt, UInt> =
+    if (current > 0u) 0u to current else remembered.coerceAtLeast(1u) to remembered.coerceAtLeast(1u)

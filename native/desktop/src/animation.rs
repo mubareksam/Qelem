@@ -89,6 +89,7 @@ pub struct AnimationBar {
     studio_visible: bool,
     /// Temporary multi-frame edit selection, separate from the document's layer selection.
     selecting: bool,
+    onion_quick_open: bool,
     selected_frames: HashSet<u64>,
     settings_open: bool,
     options_open: bool,
@@ -119,6 +120,11 @@ fn step_slot(current: usize, count: usize, delta: i8) -> Option<usize> {
     Some(if delta < 0 { current.saturating_sub(1) } else if delta > 0 { current.saturating_add(1).min(count - 1) } else { current })
 }
 
+/// Remember the previous nonzero onion count across quick-menu and timeline toggles.
+pub(crate) fn toggle_onion_frames(current: u32, remembered: u32) -> (u32, u32) {
+    if current > 0 { (0, current) } else { (remembered.max(1), remembered.max(1)) }
+}
+
 /// The zoom affects slot width only, never frame duration or the compact timeline.
 fn timeline_slot_width(aspect: f32, zoomed: bool) -> f32 {
     (FRAME_HEIGHT * aspect.clamp(0.25, 2.0) + 1.0) * if zoomed { 1.6 } else { 1.0 }
@@ -147,7 +153,7 @@ fn invert_selection(frames: &[u64], selected: &HashSet<u64>) -> HashSet<u64> {
 
 #[cfg(test)]
 mod timeline_navigation_tests {
-    use super::{invert_selection, ordered_selection, slot_of, step_slot, timeline_slot_width, timeline_time, toggle_selection};
+    use super::{invert_selection, ordered_selection, slot_of, step_slot, timeline_slot_width, timeline_time, toggle_onion_frames, toggle_selection};
     use std::collections::HashSet;
     #[test]
     fn steps_and_time_include_held_slots_and_clamp() {
@@ -169,6 +175,12 @@ mod timeline_navigation_tests {
         assert!((timeline_slot_width(10.0, false) - 81.0).abs() < 0.001);
     }
     #[test]
+    fn onion_toggle_restores_previous_count() {
+        assert_eq!(toggle_onion_frames(4, 1), (0, 4));
+        assert_eq!(toggle_onion_frames(0, 4), (4, 4));
+        assert_eq!(toggle_onion_frames(0, 0), (1, 1));
+    }
+    #[test]
     fn selection_is_by_frame_id_not_held_slot_and_inverts_visible_ids() {
         let frames = [9, 7, 4];
         let mut selected = HashSet::new();
@@ -188,6 +200,7 @@ mod timeline_navigation_tests {
 /// What the bar did that the app shows (a message).
 pub enum Said {
     NoRoom,
+    ToggleOnionSkin,
 }
 
 impl AnimationBar {
@@ -201,6 +214,7 @@ impl AnimationBar {
         self.stop(session);
         self.settings_open = false;
         self.options_open = false;
+        self.onion_quick_open = false;
         self.colours = None;
         self.end_selection();
     }
@@ -237,7 +251,7 @@ impl AnimationBar {
         harmony: HarmonyKind,
     ) -> Option<Said> {
         let Some(settings) = session.animation_settings() else {
-            if self.playing.is_some() || self.settings_open || self.options_open || self.selecting {
+            if self.playing.is_some() || self.settings_open || self.options_open || self.onion_quick_open || self.selecting {
                 self.reset(session);
             }
             return None;
@@ -255,6 +269,7 @@ impl AnimationBar {
         }
         // A small window or Page Assist falls back to compact mode, which has no selection UI.
         self.end_selection();
+        self.onion_quick_open = false;
         let width = if screen.width() > screen.height() { WIDE_BAR } else { UPRIGHT_BAR };
         let bar = Rect::from_min_size(
             pos2(screen.center().x - width / 2.0, screen.bottom() - BAR_GAP - BAR_HEIGHT),
@@ -404,18 +419,23 @@ impl AnimationBar {
                 if button(ui, 48.0, 5.0, 40.0, "‹", "Previous timeline slot", false) { jump = step_slot(focus, slots.len(), -1); }
                 let playing = self.playing.is_some();
                 if button(ui, 90.0, 5.0, 55.0, if playing { "Pause" } else { "Play" }, if playing { "Pause animation" } else { "Play animation" }, true) {
+                    self.onion_quick_open = false;
                     if playing { self.stop(session); } else { self.play(ctx, session); }
                 }
                 if button(ui, 147.0, 5.0, 40.0, "›", "Next timeline slot", false) { jump = step_slot(focus, slots.len(), 1); }
                 if button(ui, 187.0, 5.0, 40.0, "›|", "Last timeline slot", false) { jump = slots.len().checked_sub(1); }
                 if let Some(slot) = jump.filter(|i| *i < slots.len()) {
+                    self.onion_quick_open = false;
                     self.stop(session);
                     self.settings_open = false; self.options_open = false;
                     self.go_to(session, frames, slots, slot, current);
                 }
                 let time = timeline_time(focus, settings.fps);
                 let time_x = (227.0 + width - 165.0) / 2.0;
-                text(ui.painter(), pos2(bar.left() + time_x, bar.top() + 24.0), Align2::CENTER_CENTER, &time, 15.0, Weight::Bold, argb(BAR_INK));
+                if button(ui, time_x - 40.0, 5.0, 80.0, &time, "Open onion skin controls", self.onion_quick_open) {
+                    self.stop(session); self.settings_open = false; self.options_open = false; self.colours = None;
+                    self.onion_quick_open = !self.onion_quick_open;
+                }
                 if button(ui, width - 165.0, 5.0, 80.0, "Select", "Select frames to edit together", false) {
                     self.stop(session); self.settings_open = false; self.options_open = false;
                     self.track.dragging = false; self.track.slide = None;
@@ -458,12 +478,18 @@ impl AnimationBar {
             let track = Rect::from_min_size(bar.min + vec2(12.0, 96.0), vec2(width - 112.0, 44.0));
             self.timeline(ui, session, frames, slots, current, track);
         });
+        if self.settings_open || self.options_open || self.selecting || !self.studio { self.onion_quick_open = false; }
         if self.selecting && crate::ui::escape(ctx) {
             self.end_selection();
+        } else if self.onion_quick_open && crate::ui::escape(ctx) {
+            self.onion_quick_open = false;
         } else if (self.settings_open || self.options_open) && !self.takes_keys() && crate::ui::escape(ctx) && self.colours.take().is_none() {
             self.settings_open = false; self.options_open = false;
         }
-        if self.settings_open {
+        if self.onion_quick_open {
+            let center = (227.0 + width - 165.0) / 2.0;
+            if self.onion_quick_popover(ctx, settings, bar, center) { said = Some(Said::ToggleOnionSkin); }
+        } else if self.settings_open {
             let left = (settings_at - 145.0).clamp(0.0, width - 290.0);
             self.settings_popover(ctx, look, session, settings, bar, left, settings_at - left, palettes, harmony);
         } else if self.options_open && let Some(index) = current {
@@ -472,6 +498,28 @@ impl AnimationBar {
             self.options_popover(ctx, session, settings, frames, index, place, bar);
         }
         said
+    }
+
+    /// Small timecode popover; the normal settings panel remains the source for detail editing.
+    fn onion_quick_popover(&mut self, ctx: &egui::Context, settings: &AnimationSettings, bar: Rect, center: f32) -> bool {
+        let width = 250.0;
+        let height = 120.0;
+        let left = (center - width / 2.0).clamp(0.0, bar.width() - width);
+        let rect = Rect::from_min_size(pos2(bar.left() + left, bar.top() - 2.0 - height), vec2(width, height));
+        let mut toggle = false;
+        egui::Area::new(Id::unique("onion quick controls")).fixed_pos(rect.min).order(Order::Foreground).show(ctx, |ui| {
+            ui.allocate_rect(rect, Sense::click_and_drag());
+            down_popover(ui, rect, center - left);
+            text(ui.painter(), pos2(rect.left() + 16.0, rect.top() + 17.0), Align2::LEFT_CENTER, "Onion skins", 17.0, Weight::Bold, argb(PANEL_TITLE));
+            let row = Rect::from_min_size(pos2(rect.left() + 8.0, rect.top() + 34.0), vec2(width - 16.0, 38.0));
+            if toggle_row(ui, row, "Show onions", settings.onion_frames > 0) { toggle = true; }
+            let edit = Rect::from_min_size(pos2(rect.left() + 8.0, rect.top() + 72.0), vec2(width - 16.0, 34.0));
+            text(ui.painter(), pos2(edit.left() + 16.0, edit.center().y), Align2::LEFT_CENTER, "Edit playback & onions", 15.0, Weight::Regular, argb(PANEL_TITLE));
+            if ui.interact(edit, ui.scope_id().with("edit onion settings"), Sense::click()).clicked() {
+                self.onion_quick_open = false; self.settings_open = true; self.colours = None;
+            }
+        });
+        toggle
     }
 
     /// Playing goes on: the next frame shows when it is due.

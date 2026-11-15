@@ -865,8 +865,10 @@ impl Interface {
             if let Some(key) = self.animation.run_action.take() {
                 self.run_plugin_action(&ctx, session, key);
             }
-            if let Some(crate::animation::Said::NoRoom) = said {
-                crate::files::no_room(session);
+            match said {
+                Some(crate::animation::Said::NoRoom) => crate::files::no_room(session),
+                Some(crate::animation::Said::ToggleOnionSkin) => self.run_quick(&ctx, session, QuickAction::OnionSkin, egui::Pos2::ZERO),
+                None => {}
             }
         } else {
             self.animation.reset(session);
@@ -1477,12 +1479,9 @@ impl Interface {
             QuickAction::OnionSkin => {
                 // onion skins off, or back to as many as they were
                 if let Some(mut s) = session.animation_settings() {
-                    if s.onion_frames > 0 {
-                        self.onion_kept = s.onion_frames;
-                        s.onion_frames = 0;
-                    } else {
-                        s.onion_frames = self.onion_kept.max(1);
-                    }
+                    let (next, remembered) = crate::animation::toggle_onion_frames(s.onion_frames, self.onion_kept);
+                    self.onion_kept = remembered;
+                    s.onion_frames = next;
                     session.set_animation_settings(s);
                 }
             }

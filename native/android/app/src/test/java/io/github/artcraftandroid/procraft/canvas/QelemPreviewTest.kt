@@ -71,6 +71,11 @@ class QelemPreviewTest {
         assertNull(qelemTimelinePinchLevel(100f, Float.NaN))
         assertNull(qelemTimelinePinchLevel(Float.POSITIVE_INFINITY, 80f))
     }
+    @Test fun onionToggleRestoresThePriorFrameCount() {
+        assertEquals(0u to 4u, qelemToggleOnionFrames(4u, 1u))
+        assertEquals(4u to 4u, qelemToggleOnionFrames(0u, 4u))
+        assertEquals(1u to 1u, qelemToggleOnionFrames(0u, 0u))
+    }
     @Test fun timingRespectsPreviewSpeedAndBounce() {
         assertEquals(200L, qelemPreviewDelayMs(10, 50))
         assertEquals(100L, qelemPreviewDelayMs(10, 100))

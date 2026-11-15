@@ -3231,14 +3231,11 @@ class CanvasViewModel(app: Application) : AndroidViewModel(app) {
     private var onionKept = 1u
 
     /** Onion skins off, or back to as many as they were. */
-    private fun toggleOnionSkin() {
+    fun toggleOnionSkin() {
         changeAnimation {
-            if (it.onionFrames > 0u) {
-                onionKept = it.onionFrames
-                it.copy(onionFrames = 0u)
-            } else {
-                it.copy(onionFrames = onionKept)
-            }
+            val (next, remembered) = qelemToggleOnionFrames(it.onionFrames, onionKept)
+            onionKept = remembered
+            it.copy(onionFrames = next)
         }
     }
 
