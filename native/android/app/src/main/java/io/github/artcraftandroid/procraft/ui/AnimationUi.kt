@@ -84,6 +84,7 @@ import io.github.artcraftandroid.procraft.canvas.qelemCycleSlots
 import io.github.artcraftandroid.procraft.canvas.qelemTimelineTime
 import io.github.artcraftandroid.procraft.canvas.QelemRulerItem
 import io.github.artcraftandroid.procraft.canvas.qelemRulerSlot
+import io.github.artcraftandroid.procraft.canvas.qelemPlayheadCenter
 import io.github.artcraftandroid.procraft.canvas.qelemToggleFrameSelection
 import io.github.artcraftandroid.procraft.canvas.qelemInvertFrameSelection
 import io.github.artcraftandroid.procraft.canvas.qelemTimelinePinchLevel
@@ -101,6 +102,13 @@ private val BarFill get() = if (Pc.light) Color(0xFFE4E4E4) else Color(0xFF2A2A2
 private val TrackFill get() = if (Pc.light) Color(0xFFD0D0D0) else Color(0xFF474747)
 private val TrackEdge get() = if (Pc.light) Color(0xFFBDBDBD) else Color(0xFF5C5C5C)
 private val BarInk get() = if (Pc.light) Color(0xFF393939) else Color(0xFFC5C5C5)
+// Expanded timeline: a quiet, dark workspace separate from the compact drawing bar.
+private val StudioFill = Color(0xFF091418)
+private val StudioTrackFill = Color(0xFF15292F)
+private val StudioTrackEdge = Color(0xFF355058)
+private val StudioInk = Color(0xFFE4EDEF)
+private val StudioMuted = Color(0xFFB0C1C4)
+private val StudioHeld = Color(0xFF263C41)
 private const val MAX_ONION = 12
 
 /** Play's and Add Frame's inset from the bar's ends. */
@@ -283,26 +291,28 @@ private fun BoxScope.StudioTimelineBar(vm: CanvasViewModel, compact: () -> Unit)
             }
         }
         Column(
-            Modifier.padding(bottom = BarGap).fillMaxWidth().clip(RoundedCornerShape(22.dp))
-                .background(BarFill).pointerInput(Unit) { detectTapGestures { } }.padding(8.dp),
+            Modifier.padding(bottom = BarGap).fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                .background(StudioFill).pointerInput(Unit) { detectTapGestures { } }.padding(horizontal = 10.dp, vertical = 8.dp),
         ) {
-            // A quiet header leaves the artwork above as the visual focus.
+            // The timecode anchors the workspace at the left, with drawing controls close by.
             Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
-                StudioIconButton(StudioGlyph.UNDO, "Undo") { onionQuickOpen = false; toolsOpen = false; vm.stopPlaying(); vm.undo() }
-                StudioIconButton(StudioGlyph.REDO, "Redo") { onionQuickOpen = false; toolsOpen = false; vm.stopPlaying(); vm.redo() }
                 Column(
-                    Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(10.dp))
+                    Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(8.dp))
                         .then(if (selecting) Modifier else Modifier.clickable {
                             vm.stopPlaying(); toolsOpen = false; vm.frameOptionsOpen = false; vm.animationSettingsOpen = false
                             onionQuickOpen = !onionQuickOpen
-                        }.semantics { contentDescription = "Timecode ${qelemTimelineTime(focus, fps)}. Onion skin controls." }),
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+                        }.semantics { contentDescription = "Timecode ${qelemTimelineTime(focus, fps)}. Onion skin controls." })
+                        .padding(start = 8.dp),
+                    horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.Center,
                 ) {
-                    Text(if (onionQuickOpen) "ONION SKINS" else "TIMELINE", color = BarInk.copy(alpha = 0.75f), fontSize = 9.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                    Text(qelemTimelineTime(focus, fps), color = BarInk, fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                    Text(if (onionQuickOpen) "ONION SKINS" else "DRAWING TIMELINE", color = StudioMuted, fontSize = 9.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text(qelemTimelineTime(focus, fps), color = StudioInk, fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
                 }
+                StudioIconButton(StudioGlyph.UNDO, "Undo") { onionQuickOpen = false; toolsOpen = false; vm.stopPlaying(); vm.undo() }
+                StudioIconButton(StudioGlyph.REDO, "Redo") { onionQuickOpen = false; toolsOpen = false; vm.stopPlaying(); vm.redo() }
                 StudioControl("Canvas", "Return to compact canvas timeline") { onionQuickOpen = false; toolsOpen = false; vm.animationSettingsOpen = false; vm.frameOptionsOpen = false; compact() }
             }
+            Spacer(Modifier.fillMaxWidth().height(1.dp).background(StudioTrackEdge.copy(alpha = 0.6f)))
             if (selecting) {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     StudioControl("Done", "Finish selecting frames", active = true) { selecting = false; chosenFrames = emptySet() }
@@ -325,38 +335,51 @@ private fun BoxScope.StudioTimelineBar(vm: CanvasViewModel, compact: () -> Unit)
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (selecting) "${chosenFrames.size} FRAMES SELECTED" else "DRAWING TRACK  ·  PINCH TO ZOOM", color = BarInk, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
-                Text("${if (slots.isEmpty()) 0 else focus + 1}/${slots.size}  ·  $fps fps", color = BarInk, fontSize = 11.sp)
+                Text(if (selecting) "${chosenFrames.size} FRAMES SELECTED" else "DRAWING TRACK  ·  PINCH TO ZOOM", color = StudioMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
+                Text("${if (slots.isEmpty()) 0 else focus + 1}/${slots.size}  ·  $fps fps", color = StudioMuted, fontSize = 11.sp)
             }
             StudioRuler(vm, list, slots, focus, fps, !selecting) { scrubSlot = it; if (it != null) onionQuickOpen = false }
-            LazyRow(
-                state = list,
-                modifier = Modifier.fillMaxWidth().height(if (tallTrack) 142.dp else 78.dp).clip(RoundedCornerShape(12.dp)).background(TrackFill)
-                    .timelinePinchZoom { setTimelineZoom(it) },
-            ) {
-                items(slots.size) { index ->
-                    val frame = slots[index]
-                    val held = index > 0 && slots[index - 1] == frame
-                    val focused = index == focus
-                    val id = vm.animationFrames.getOrNull(frame)
-                    val chosen = selecting && id != null && id in chosenFrames
-                    val image = id?.let { vm.frameThumbnails[it] }
-                    Column(
-                        Modifier.padding(start = 3.dp, top = 3.dp, bottom = 3.dp).width(if (zoomed) 88.dp else 57.dp)
-                            .clip(RoundedCornerShape(7.dp)).background(if (held) HeldFrame else Color.White)
-                            .border(if (chosen || (!selecting && focused)) 2.dp else 1.dp, if (chosen || (!selecting && focused)) Pc.Accent else TrackEdge, RoundedCornerShape(7.dp))
-                            .clickable {
-                                if (selecting) {
-                                    chosenFrames = qelemToggleFrameSelection(chosenFrames, id)
-                                } else { onionQuickOpen = false; toolsOpen = false; vm.tapFrame(index) }
+            Box(Modifier.fillMaxWidth().height(if (tallTrack) 142.dp else 78.dp).clip(RoundedCornerShape(6.dp)).background(StudioTrackFill)) {
+                LazyRow(
+                    state = list,
+                    modifier = Modifier.fillMaxSize().timelinePinchZoom { setTimelineZoom(it) },
+                ) {
+                    items(slots.size) { index ->
+                        val frame = slots[index]
+                        val held = index > 0 && slots[index - 1] == frame
+                        val focused = index == focus
+                        val id = vm.animationFrames.getOrNull(frame)
+                        val chosen = selecting && id != null && id in chosenFrames
+                        val image = id?.let { vm.frameThumbnails[it] }
+                        Column(
+                            Modifier.padding(start = 3.dp, top = 3.dp, bottom = 3.dp).width(if (zoomed) 88.dp else 57.dp)
+                                .clip(RoundedCornerShape(4.dp)).background(if (held) StudioHeld else Color.White)
+                                .border(if (chosen || (!selecting && focused)) 2.dp else 1.dp, if (chosen || (!selecting && focused)) Pc.Accent else StudioTrackEdge, RoundedCornerShape(4.dp))
+                                .clickable {
+                                    if (selecting) {
+                                        chosenFrames = qelemToggleFrameSelection(chosenFrames, id)
+                                    } else { onionQuickOpen = false; toolsOpen = false; vm.tapFrame(index) }
+                                }
+                                .semantics { contentDescription = "Slot ${index + 1}, frame ${frame + 1}${if (held) ", held" else ""}${if (chosen) ", selected for editing" else if (!selecting && focused) ", current" else ""}" },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Box(Modifier.weight(1f).fillMaxWidth().padding(3.dp), contentAlignment = Alignment.Center) {
+                                if (image != null) Image(image, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
                             }
-                            .semantics { contentDescription = "Slot ${index + 1}, frame ${frame + 1}${if (held) ", held" else ""}${if (chosen) ", selected for editing" else if (!selecting && focused) ", current" else ""}" },
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Box(Modifier.weight(1f).fillMaxWidth().padding(3.dp), contentAlignment = Alignment.Center) {
-                            if (image != null) Image(image, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                            Text((if (chosen) "✓ " else "") + (if (held) "${index + 1} · HOLD" else "${index + 1} · F${frame + 1}"), color = if (held) StudioInk else Color(0xFF252525), fontSize = 9.sp, maxLines = 1)
                         }
-                        Text((if (chosen) "✓ " else "") + (if (held) "${index + 1} · HOLD" else "${index + 1} · F${frame + 1}"), color = Color(0xFF252525), fontSize = 9.sp, maxLines = 1)
+                    }
+                }
+                // The playhead is visual-only; pointer input stays on the ruler and frame cards.
+                if (!selecting) {
+                    val accent = Pc.Accent
+                    Canvas(Modifier.fillMaxSize()) {
+                        val item = list.layoutInfo.visibleItemsInfo.firstOrNull { it.index == focus }
+                        val x = qelemPlayheadCenter(item?.let { QelemRulerItem(it.index, it.offset, it.size) }, size.width)
+                        if (x != null) {
+                            drawLine(accent, Offset(x, 0f), Offset(x, size.height), strokeWidth = 2.dp.toPx())
+                            drawCircle(accent, radius = 4.dp.toPx(), center = Offset(x, 5.dp.toPx()))
+                        }
                     }
                 }
             }
@@ -406,10 +429,10 @@ private fun StudioRuler(vm: CanvasViewModel, list: LazyListState, slots: List<In
     val density = LocalDensity.current
     val marks = list.layoutInfo.visibleItemsInfo
     val accent = Pc.Accent
-    val ink = BarInk
+    val ink = StudioMuted
     fun slotAt(x: Float): Int? = qelemRulerSlot(x, slots.size, list.layoutInfo.visibleItemsInfo.map { QelemRulerItem(it.index, it.offset, it.size) })
     Box(
-        Modifier.fillMaxWidth().height(32.dp).clip(RoundedCornerShape(6.dp)).background(TrackFill)
+        Modifier.fillMaxWidth().height(32.dp).clip(RoundedCornerShape(4.dp)).background(StudioFill)
             .semantics { contentDescription = if (enabled) "Timeline ruler. Tap or drag to scrub frames." else "Timeline ruler. Finish selecting to scrub." }
             .drawBehind {
                 for (item in list.layoutInfo.visibleItemsInfo) {
@@ -456,7 +479,7 @@ private enum class StudioGlyph { UNDO, REDO, PREVIOUS, NEXT, PLAY, PAUSE, ADD }
 
 @Composable
 private fun StudioIconButton(glyph: StudioGlyph, description: String, emphasized: Boolean = false, onClick: () -> Unit) {
-    val ink = if (emphasized) Color.White else BarInk
+    val ink = if (emphasized) Color.White else StudioInk
     Box(
         Modifier.size(44.dp).clip(RoundedCornerShape(14.dp))
             .background(if (emphasized) Pc.Accent else Color.Transparent)
@@ -496,7 +519,7 @@ private fun StudioControl(label: String, description: String, active: Boolean = 
     Box(Modifier.height(44.dp).padding(horizontal = 2.dp).clip(RoundedCornerShape(12.dp))
         .background(if (active) Pc.Accent else Color.Transparent)
         .clickable(onClick = onClick).semantics { contentDescription = description }.padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
-        Text(label, color = if (active) Color.White else BarInk, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        Text(label, color = if (active) Color.White else StudioInk, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
     }
 }
 

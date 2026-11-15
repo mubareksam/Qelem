@@ -49,6 +49,13 @@ internal fun qelemTimelineTime(slot: Int, fps: Int): String {
 /** A measured lazy-row item, in the same pixel coordinates as the timeline ruler. */
 internal data class QelemRulerItem(val index: Int, val startPx: Int, val sizePx: Int)
 
+/** Center of a measured slot for the playhead, in the same coordinates as ruler and track. */
+internal fun qelemPlayheadCenter(item: QelemRulerItem?, viewportWidth: Float): Float? {
+    if (item == null || item.sizePx <= 0 || !viewportWidth.isFinite() || viewportWidth < 0f) return null
+    val x = item.startPx.toFloat() + item.sizePx / 2f
+    return x.takeIf { it in 0f..viewportWidth }
+}
+
 /** Select the visible slot under a ruler touch, clamped to its measured visible edges. */
 internal fun qelemRulerSlot(x: Float, total: Int, visible: List<QelemRulerItem>): Int? {
     if (!x.isFinite() || total <= 0 || visible.isEmpty()) return null

@@ -39,5 +39,7 @@ fun main() {
     check(qelemTimelinePinchLevel(100f, 105f) == null && qelemTimelinePinchLevel(0f, 10f) == null)
     check(qelemToggleOnionFrames(4u, 1u) == (0u to 4u))
     check(qelemToggleOnionFrames(0u, 4u) == (4u to 4u))
+    check(qelemPlayheadCenter(QelemRulerItem(2, -20, 60), 100f) == 10f)
+    check(qelemPlayheadCenter(QelemRulerItem(3, 100, 60), 100f) == null)
     println("Qelem preview: reversal, held slots, ID-based range, speed and cycle timing passed")
 }

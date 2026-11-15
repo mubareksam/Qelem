@@ -28,6 +28,12 @@ const BAR_FILL: Themed = Themed(0xFF2A2A2A, 0xFFE4E4E4);
 const TRACK_FILL: Themed = Themed(0xFF474747, 0xFFD0D0D0);
 const TRACK_EDGE: Themed = Themed(0xFF5C5C5C, 0xFFBDBDBD);
 const BAR_INK: Themed = Themed(0xFFC5C5C5, 0xFF393939);
+// Expanded workspace only: dark stage-adjacent timeline with a restrained high-contrast track.
+const STUDIO_FILL: Themed = Themed(0xFF091418, 0xFF091418);
+const STUDIO_TRACK: Themed = Themed(0xFF15292F, 0xFF15292F);
+const STUDIO_EDGE: Themed = Themed(0xFF355058, 0xFF355058);
+const STUDIO_INK: Themed = Themed(0xFFE4EDEF, 0xFFE4EDEF);
+const STUDIO_HELD: Themed = Themed(0xFF263C41, 0xFF263C41);
 const FRAME_EDGE: u32 = 0xFF9A9A9A;
 const HELD_FRAME: u32 = 0xFFA3A3A3;
 const POPOVER_FILL: Themed = Themed(0xFF383838, 0xFFE6E6E6);
@@ -125,6 +131,9 @@ pub(crate) fn toggle_onion_frames(current: u32, remembered: u32) -> (u32, u32) {
     if current > 0 { (0, current) } else { (remembered.max(1), remembered.max(1)) }
 }
 
+/// Expanded timeline fills a wide window without extending into its outer margin.
+fn studio_width(screen_width: f32) -> f32 { (screen_width - 16.0).min(1100.0) }
+
 /// The zoom affects slot width only, never frame duration or the compact timeline.
 fn timeline_slot_width(aspect: f32, zoomed: bool) -> f32 {
     (FRAME_HEIGHT * aspect.clamp(0.25, 2.0) + 1.0) * if zoomed { 1.6 } else { 1.0 }
@@ -153,7 +162,7 @@ fn invert_selection(frames: &[u64], selected: &HashSet<u64>) -> HashSet<u64> {
 
 #[cfg(test)]
 mod timeline_navigation_tests {
-    use super::{invert_selection, ordered_selection, slot_of, step_slot, timeline_slot_width, timeline_time, toggle_onion_frames, toggle_selection};
+    use super::{invert_selection, ordered_selection, slot_of, step_slot, timeline_slot_width, timeline_time, studio_width, toggle_onion_frames, toggle_selection};
     use std::collections::HashSet;
     #[test]
     fn steps_and_time_include_held_slots_and_clamp() {
@@ -173,6 +182,16 @@ mod timeline_navigation_tests {
         assert!((timeline_slot_width(1.0, false) - 41.0).abs() < 0.001);
         assert!((timeline_slot_width(1.0, true) - 65.6).abs() < 0.001);
         assert!((timeline_slot_width(10.0, false) - 81.0).abs() < 0.001);
+    }
+    #[test]
+    fn wide_timeline_keeps_timecode_clear_of_controls() {
+        for screen in [520.0, 800.0, 1600.0] {
+            let width = studio_width(screen);
+            let center = (227.0 + width - 165.0) / 2.0;
+            assert!(center - 40.0 >= 227.0);
+            assert!(center + 40.0 <= width - 165.0);
+            assert!(width <= screen - 16.0 && width <= 1100.0);
+        }
     }
     #[test]
     fn onion_toggle_restores_previous_count() {
@@ -372,7 +391,7 @@ impl AnimationBar {
         frames: &[u64], slots: &[usize], current: Option<usize>,
     ) -> Option<Said> {
         let screen = ctx.content_rect();
-        let width = (screen.width() - 16.0).min(740.0);
+        let width = studio_width(screen.width());
         let bar = Rect::from_min_size(pos2(screen.center().x - width / 2.0, screen.bottom() - BAR_GAP - 150.0), vec2(width, 150.0));
         let mut said = None;
         let mut settings_at: f32 = 0.0;
@@ -380,17 +399,18 @@ impl AnimationBar {
             .or_else(|| current.and_then(|c| slot_of(slots, c, frames.get(c).copied(), self.held))).unwrap_or(0);
         egui::Area::new(Id::unique("studio timeline bar")).fixed_pos(bar.min).order(Order::Middle).show(ctx, |ui| {
             ui.allocate_rect(bar, Sense::click_and_drag());
-            ui.painter().rect_filled(bar, 22, argb(BAR_FILL));
+            ui.painter().rect_filled(bar, 10, argb(STUDIO_FILL));
+            ui.painter().line_segment([pos2(bar.left() + 12.0, bar.top() + 44.0), pos2(bar.right() - 12.0, bar.top() + 44.0)], Stroke::new(1.0, argb(STUDIO_EDGE)));
             let button = |ui: &Ui, x: f32, y: f32, w: f32, label: &str, hint: &str, active: bool| {
                 let r = Rect::from_min_size(pos2(bar.left() + x, bar.top() + y), vec2(w, 38.0));
                 if active { ui.painter().rect_filled(r.shrink(2.0), 10, argb(pc::ACCENT)); }
-                let color = if active { Color32::WHITE } else { argb(BAR_INK) };
+                let color = if active { Color32::WHITE } else { argb(STUDIO_INK) };
                 text(ui.painter(), r.center(), Align2::CENTER_CENTER, label, 14.0, Weight::Regular, color);
                 ui.interact(r, ui.scope_id().with(hint), Sense::click()).on_hover_text(hint).clicked()
             };
             if self.selecting {
                 if button(ui, 8.0, 5.0, 70.0, "Done", "Finish selecting frames", true) { self.end_selection(); }
-                text(ui.painter(), pos2(bar.center().x, bar.top() + 24.0), Align2::CENTER_CENTER, "SELECT FRAMES", 13.0, Weight::Bold, argb(BAR_INK));
+                text(ui.painter(), pos2(bar.center().x, bar.top() + 24.0), Align2::CENTER_CENTER, "SELECT FRAMES", 13.0, Weight::Bold, argb(STUDIO_INK));
                 if button(ui, width - 85.0, 5.0, 77.0, "Canvas", "Return to compact timeline", false) {
                     self.end_selection(); self.studio = false;
                 }
@@ -412,7 +432,7 @@ impl AnimationBar {
                     else { session.adjust_animation_holds(ids, true); }
                 }
                 let count = format!("{} selected", self.selected_frames.len());
-                text(ui.painter(), pos2(bar.right() - 12.0, bar.top() + 64.0), Align2::RIGHT_CENTER, &count, 13.0, Weight::Regular, argb(BAR_INK));
+                text(ui.painter(), pos2(bar.right() - 12.0, bar.top() + 64.0), Align2::RIGHT_CENTER, &count, 13.0, Weight::Regular, argb(STUDIO_INK));
             } else {
                 let mut jump = None;
                 if button(ui, 8.0, 5.0, 40.0, "|‹", "First timeline slot", false) { jump = Some(0); }
@@ -677,7 +697,8 @@ impl AnimationBar {
             }
         }
         let painter = ui.painter_at(track);
-        painter.rect_filled(track, 18, argb(TRACK_FILL));
+        let track_rounding = if self.studio_visible { 6 } else { 18 };
+        painter.rect_filled(track, track_rounding, argb(if self.studio_visible { STUDIO_TRACK } else { TRACK_FILL }));
         let mut tapped = None;
         for (i, frame) in slots.iter().enumerate() {
             // a frame's held places: grey cards after it
@@ -687,8 +708,9 @@ impl AnimationBar {
                 continue;
             }
             let card = Rect::from_min_size(pos2(x, track.top() + 2.0), vec2(frame_width, FRAME_HEIGHT));
-            painter.rect_filled(card, 6, if held { argb(HELD_FRAME) } else { Color32::WHITE });
-            if let Some(texture) = frames.get(*frame).and_then(|id| self.thumbs.get(id)).filter(|_| !held) {
+            let card_rounding = if self.studio_visible { 4 } else { 6 };
+            painter.rect_filled(card, card_rounding, if held { if self.studio_visible { argb(STUDIO_HELD) } else { argb(HELD_FRAME) } } else { Color32::WHITE });
+            if let Some(texture) = frames.get(*frame).and_then(|id| self.thumbs.get(id)).filter(|_| !held || self.studio_visible) {
                 let [w, h] = texture.size().map(|v| v.max(1) as f32);
                 let room = card.shrink(2.0);
                 let k = (room.width() / w).min(room.height() / h);
@@ -697,16 +719,21 @@ impl AnimationBar {
                     texture.id(),
                     picture,
                     Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-                    Color32::WHITE,
+                    if held { Color32::from_white_alpha(180) } else { Color32::WHITE },
                 );
             }
             let selected = self.selecting && frames.get(*frame).is_some_and(|id| self.selected_frames.contains(id));
-            painter.rect_stroke(card, 6, Stroke::new(if selected { 3.0 } else { 1.0 }, if selected { argb(pc::ACCENT) } else { argb(FRAME_EDGE) }), egui::StrokeKind::Inside);
+            painter.rect_stroke(card, card_rounding, Stroke::new(if selected { 3.0 } else { 1.0 }, if selected { argb(pc::ACCENT) } else { argb(FRAME_EDGE) }), egui::StrokeKind::Inside);
             if response.clicked() && response.interact_pointer_pos().is_some_and(|p| card.contains(p)) {
                 tapped = Some(i);
             }
         }
-        painter.rect_stroke(track, 18, Stroke::new(1.0, argb(TRACK_EDGE)), egui::StrokeKind::Inside);
+        painter.rect_stroke(track, track_rounding, Stroke::new(1.0, argb(if self.studio_visible { STUDIO_EDGE } else { TRACK_EDGE })), egui::StrokeKind::Inside);
+        if self.studio_visible && !self.selecting {
+            let x = track.center().x;
+            painter.line_segment([pos2(x, track.top()), pos2(x, track.bottom())], Stroke::new(2.0, argb(pc::ACCENT)));
+            painter.circle_filled(pos2(x, track.top() + 5.0), 4.0, argb(pc::ACCENT));
+        }
         let line = Rect::from_min_size(pos2(track.center().x - 12.0, track.bottom() + 3.0), vec2(24.0, 3.0));
         ui.painter().rect_filled(line, 1.5, argb(pc::ACCENT));
         if let Some(i) = settled {

@@ -42,6 +42,14 @@ class QelemPreviewTest {
         assertNull(qelemRulerSlot(0f, 10, emptyList()))
         assertEquals(6, qelemRulerSlot(42f, 7, visible))
     }
+    @Test fun playheadUsesMeasuredSlotCenterAndClipsOffscreen() {
+        assertEquals(10f, qelemPlayheadCenter(QelemRulerItem(5, -20, 60), 100f)!!, 0.001f)
+        assertEquals(70f, qelemPlayheadCenter(QelemRulerItem(6, 40, 60), 100f)!!, 0.001f)
+        assertNull(qelemPlayheadCenter(QelemRulerItem(7, 100, 60), 100f))
+        assertNull(qelemPlayheadCenter(QelemRulerItem(7, 10, 0), 100f))
+        assertNull(qelemPlayheadCenter(null, 100f))
+        assertNull(qelemPlayheadCenter(QelemRulerItem(0, 0, 20), Float.NaN))
+    }
     @Test fun heldSelectionTracksIdentityAcrossReordering() {
         val slotsAfterMove = listOf(0, 1, 1, 1, 2)
         assertEquals(2, qelemHeldOffset(12uL, 12uL, 2, 1, slotsAfterMove))
