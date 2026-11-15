@@ -79,3 +79,14 @@ internal fun qelemToggleFrameSelection(selected: Set<ULong>, id: ULong?): Set<UL
 /** Invert the temporary selection among the current visible frame IDs only. */
 internal fun qelemInvertFrameSelection(frames: List<ULong>, selected: Set<ULong>): Set<ULong> =
     frames.filterNot { it in selected }.toSet()
+
+/** Two discrete timeline zoom levels; ignore noise, invalid input and zero-distance pairs. */
+internal fun qelemTimelinePinchLevel(startSpan: Float, currentSpan: Float): Boolean? {
+    if (!startSpan.isFinite() || !currentSpan.isFinite() || startSpan <= 0f || currentSpan <= 0f) return null
+    val ratio = currentSpan / startSpan
+    return when {
+        ratio >= 1.18f -> true
+        ratio <= 0.84f -> false
+        else -> null
+    }
+}

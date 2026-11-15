@@ -84,6 +84,9 @@ pub struct AnimationBar {
     pub run_action: Option<String>,
     /// Expanded workspace is a view of the same frame layers; Page Assist stays compact.
     studio: bool,
+    /// The larger timeline can show two time scales; compact mode is unchanged.
+    studio_zoomed: bool,
+    studio_visible: bool,
     /// Temporary multi-frame edit selection, separate from the document's layer selection.
     selecting: bool,
     selected_frames: HashSet<u64>,
@@ -116,6 +119,11 @@ fn step_slot(current: usize, count: usize, delta: i8) -> Option<usize> {
     Some(if delta < 0 { current.saturating_sub(1) } else if delta > 0 { current.saturating_add(1).min(count - 1) } else { current })
 }
 
+/// The zoom affects slot width only, never frame duration or the compact timeline.
+fn timeline_slot_width(aspect: f32, zoomed: bool) -> f32 {
+    (FRAME_HEIGHT * aspect.clamp(0.25, 2.0) + 1.0) * if zoomed { 1.6 } else { 1.0 }
+}
+
 fn timeline_time(slot: usize, fps: u32) -> String {
     let fps = fps.clamp(1, 60) as usize;
     let seconds = slot / fps;
@@ -139,7 +147,7 @@ fn invert_selection(frames: &[u64], selected: &HashSet<u64>) -> HashSet<u64> {
 
 #[cfg(test)]
 mod timeline_navigation_tests {
-    use super::{invert_selection, ordered_selection, slot_of, step_slot, timeline_time, toggle_selection};
+    use super::{invert_selection, ordered_selection, slot_of, step_slot, timeline_slot_width, timeline_time, toggle_selection};
     use std::collections::HashSet;
     #[test]
     fn steps_and_time_include_held_slots_and_clamp() {
@@ -153,6 +161,12 @@ mod timeline_navigation_tests {
         assert_eq!(slot_of(&slots, 2, Some(8), (Some(42), 1)), Some(3));
         assert_eq!(timeline_time(25, 24), "0:01:01");
         assert_eq!(timeline_time(1440, 24), "1:00:00");
+    }
+    #[test]
+    fn timeline_zoom_only_changes_card_width() {
+        assert!((timeline_slot_width(1.0, false) - 41.0).abs() < 0.001);
+        assert!((timeline_slot_width(1.0, true) - 65.6).abs() < 0.001);
+        assert!((timeline_slot_width(10.0, false) - 81.0).abs() < 0.001);
     }
     #[test]
     fn selection_is_by_frame_id_not_held_slot_and_inverts_visible_ids() {
@@ -235,7 +249,8 @@ impl AnimationBar {
         self.read_thumbs(ctx, session, &frames);
         let screen = ctx.content_rect();
         self.selected_frames.retain(|id| frames.contains(id));
-        if self.studio && !settings.pages && screen.width() >= 520.0 && screen.height() >= 300.0 {
+        self.studio_visible = self.studio && !settings.pages && screen.width() >= 520.0 && screen.height() >= 300.0;
+        if self.studio_visible {
             return self.show_studio(ctx, look, session, palettes, harmony, &settings, &frames, &slots, current);
         }
         // A small window or Page Assist falls back to compact mode, which has no selection UI.
@@ -437,7 +452,10 @@ impl AnimationBar {
                     if session.add_frame() == 0 { said = Some(Said::NoRoom); }
                 }
             }
-            let track = Rect::from_min_size(bar.min + vec2(12.0, 96.0), vec2(width - 24.0, 44.0));
+            // Leave the zoom buttons outside the track's hit area: they never select a frame.
+            if button(ui, width - 96.0, 98.0, 40.0, "−", "Zoom out timeline", false) { self.studio_zoomed = false; }
+            if button(ui, width - 54.0, 98.0, 40.0, "+", "Zoom in timeline", false) { self.studio_zoomed = true; }
+            let track = Rect::from_min_size(bar.min + vec2(12.0, 96.0), vec2(width - 112.0, 44.0));
             self.timeline(ui, session, frames, slots, current, track);
         });
         if self.selecting && crate::ui::escape(ctx) {
@@ -543,7 +561,7 @@ impl AnimationBar {
         } else {
             0.66
         };
-        let frame_width = FRAME_HEIGHT * aspect + 1.0;
+        let frame_width = timeline_slot_width(aspect, self.studio_visible && self.studio_zoomed);
         let pitch = frame_width + 1.0;
         let t = &mut self.track;
         if self.selecting { t.at = t.at.clamp(0.0, last); }

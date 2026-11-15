@@ -35,5 +35,7 @@ fun main() {
     check(qelemRulerSlot(39f, 5, ruler) == 2 && qelemRulerSlot(40f, 5, ruler) == 3)
     check(qelemRulerSlot(Float.NaN, 5, ruler) == null)
     check(qelemInvertFrameSelection(listOf(10uL, 20uL, 30uL), setOf(20uL, 99uL)) == setOf(10uL, 30uL))
+    check(qelemTimelinePinchLevel(100f, 120f) == true && qelemTimelinePinchLevel(100f, 80f) == false)
+    check(qelemTimelinePinchLevel(100f, 105f) == null && qelemTimelinePinchLevel(0f, 10f) == null)
     println("Qelem preview: reversal, held slots, ID-based range, speed and cycle timing passed")
 }

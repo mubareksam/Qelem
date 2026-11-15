@@ -14,6 +14,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -63,6 +65,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -82,6 +86,7 @@ import io.github.artcraftandroid.procraft.canvas.QelemRulerItem
 import io.github.artcraftandroid.procraft.canvas.qelemRulerSlot
 import io.github.artcraftandroid.procraft.canvas.qelemToggleFrameSelection
 import io.github.artcraftandroid.procraft.canvas.qelemInvertFrameSelection
+import io.github.artcraftandroid.procraft.canvas.qelemTimelinePinchLevel
 import io.github.artcraftandroid.procraft.core.AnimationPlayback
 import kotlin.math.floor
 import kotlin.math.roundToInt
@@ -232,6 +237,10 @@ private fun BoxScope.StudioTimelineBar(vm: CanvasViewModel, compact: () -> Unit)
     var colorsPage by remember { mutableStateOf(false) }
     if (!vm.animationSettingsOpen) colorsPage = false
     val list = rememberLazyListState()
+    val setTimelineZoom by rememberUpdatedState<(Boolean) -> Unit> { level ->
+        toolsOpen = false
+        zoomed = level
+    }
     LaunchedEffect(focus, slots.size, selecting) {
         // Don't fight manual browsing or force-scroll while changing multiple durations.
         if (!selecting && slots.isNotEmpty() && list.layoutInfo.visibleItemsInfo.none { it.index == focus }) list.scrollToItem(focus)
@@ -298,13 +307,14 @@ private fun BoxScope.StudioTimelineBar(vm: CanvasViewModel, compact: () -> Unit)
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (selecting) "${chosenFrames.size} FRAMES SELECTED" else "DRAWING TRACK", color = BarInk, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(if (selecting) "${chosenFrames.size} FRAMES SELECTED" else "DRAWING TRACK  ·  PINCH TO ZOOM", color = BarInk, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
                 Text("${if (slots.isEmpty()) 0 else focus + 1}/${slots.size}  ·  $fps fps", color = BarInk, fontSize = 11.sp)
             }
             StudioRuler(vm, list, slots, focus, fps, !selecting) { scrubSlot = it }
             LazyRow(
                 state = list,
-                modifier = Modifier.fillMaxWidth().height(if (tallTrack) 142.dp else 78.dp).clip(RoundedCornerShape(12.dp)).background(TrackFill),
+                modifier = Modifier.fillMaxWidth().height(if (tallTrack) 142.dp else 78.dp).clip(RoundedCornerShape(12.dp)).background(TrackFill)
+                    .timelinePinchZoom { setTimelineZoom(it) },
             ) {
                 items(slots.size) { index ->
                     val frame = slots[index]
@@ -332,6 +342,42 @@ private fun BoxScope.StudioTimelineBar(vm: CanvasViewModel, compact: () -> Unit)
                     }
                 }
             }
+        }
+    }
+}
+
+/** Two fingers change the timeline scale without forwarding a stray tap to a frame.
+ * One-finger scrolling/taps and stylus input keep their existing handlers. */
+private fun Modifier.timelinePinchZoom(onZoom: (Boolean) -> Unit): Modifier = pointerInput(Unit) {
+    awaitEachGesture {
+        val first = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        var fingers: Pair<androidx.compose.ui.input.pointer.PointerId, androidx.compose.ui.input.pointer.PointerId>? = null
+        var startSpan = 0f
+        var handled = false
+        var blocked = first.type != PointerType.Touch
+        while (true) {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            val down = event.changes.filter { it.pressed }
+            if (fingers == null && down.size > 2) blocked = true
+            if (fingers == null && !blocked && down.size == 2 && down.all { it.type == PointerType.Touch }) {
+                val a = down[0]; val b = down[1]
+                fingers = a.id to b.id
+                startSpan = (a.position - b.position).getDistance()
+            }
+            val pair = fingers
+            if (pair != null) {
+                // A third finger cancels zoom, rather than turning a tap into an edit.
+                if (down.size > 2) handled = true
+                // Claim until both fingers are lifted, even if the span is too small to zoom.
+                event.changes.forEach { it.consume() }
+                val a = down.firstOrNull { it.id == pair.first }
+                val b = down.firstOrNull { it.id == pair.second }
+                if (!handled && down.size == 2 && a != null && b != null) {
+                    val level = qelemTimelinePinchLevel(startSpan, (a.position - b.position).getDistance())
+                    if (level != null) { onZoom(level); handled = true }
+                }
+            }
+            if (down.isEmpty()) break
         }
     }
 }

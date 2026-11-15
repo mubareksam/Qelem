@@ -63,6 +63,14 @@ class QelemPreviewTest {
         assertEquals(emptySet<ULong>(), qelemInvertFrameSelection(emptyList(), setOf(7uL)))
         assertEquals(setOf(8uL), qelemInvertFrameSelection(frames, qelemInvertFrameSelection(frames, setOf(8uL))))
     }
+    @Test fun pinchZoomIgnoresNoiseAndInvalidSpans() {
+        assertNull(qelemTimelinePinchLevel(100f, 110f))
+        assertEquals(true, qelemTimelinePinchLevel(100f, 120f))
+        assertEquals(false, qelemTimelinePinchLevel(100f, 80f))
+        assertNull(qelemTimelinePinchLevel(0f, 80f))
+        assertNull(qelemTimelinePinchLevel(100f, Float.NaN))
+        assertNull(qelemTimelinePinchLevel(Float.POSITIVE_INFINITY, 80f))
+    }
     @Test fun timingRespectsPreviewSpeedAndBounce() {
         assertEquals(200L, qelemPreviewDelayMs(10, 50))
         assertEquals(100L, qelemPreviewDelayMs(10, 100))
