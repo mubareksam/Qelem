@@ -145,7 +145,6 @@ android {
             // CI debug keys are ephemeral. Install this preview beside previous Qelem builds;
             // never make users remove a build that may contain artwork.
             applicationIdSuffix = ".timeline.debug"
-            resValue("string", "app_name", "Qelem Timeline Preview")
         }
         release {
             isMinifyEnabled = true
