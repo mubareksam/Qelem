@@ -1,0 +1,31 @@
+Qelem post-1.5 Windows and Android onion controls development previews
+Source commit: 076d120e10b2d8ecdc99654d00e25e780f5ecd5e
+Android build: https://github.com/mubareksam/Qelem/actions/runs/43687742769
+Windows build: https://github.com/mubareksam/Qelem/actions/runs/43687742772
+Windows binaries unsigned. Android debug signed and separately packaged; not an upgrade.
+Physical device testing required. Back up artwork and keep the original app installed.
+c88d5a7182ff400a6ade30f993232f8f45748695b78a7cc9696b4003fb14a713  Qelem-Android-onion-quick-preview-arm64.apk
+29b2994008e3600fc5aa66f45a5ab3a8adb8e6e5e2621b14596264ea525ac2fc  Qelem-Windows-onion-quick-preview-x64.zip
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v3.2 scheme (APK Signature Scheme v3.2): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+V2 Signer: certificate DN: C=US, O=Android, CN=Android Debug
+V2 Signer: certificate SHA-256 digest: bab37cea59b7a928e6757550292ecbed67e0b128d2bec8b4d7e5991f1316311f
+V2 Signer: certificate SHA-1 digest: 56165e44ee590db264efd8ba7b6587967a73795f
+V2 Signer: certificate MD5 digest: cc7e458b660fec5b8e660f163e395ede
+V2 Signer: key algorithm: RSA
+V2 Signer: key size (bits): 2048
+V2 Signer: public key SHA-256 digest: 67cf56fce8bf7e5e8dde1c977366f3bf8a0869a2bea91b0efc74f01ec5c72197
+V2 Signer: public key SHA-1 digest: 15f65135909a84e0e309f2fe8f8a443de930388a
+V2 Signer: public key MD5 digest: baeb1282869f19c7ee8365436afe986a
+package: name='com.qalam.studio.nativepreview.debug' versionCode='10500012' versionName='1.5-preview' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'
+sdkVersion:'28'
+targetSdkVersion:'36'
+application-label:'Qelem'
+native-code: 'arm64-v8a'
