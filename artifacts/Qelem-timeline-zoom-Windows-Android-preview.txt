@@ -1,0 +1,31 @@
+Qelem post-1.5 Windows and Android timeline zoom development previews
+Source commit: db40fc93720322d77c48e9ddef67e6c91007ac26
+Android build: https://github.com/mubareksam/Qelem/actions/runs/43686001506
+Windows build: https://github.com/mubareksam/Qelem/actions/runs/43686001515
+Windows binaries unsigned. Android debug signed and separately packaged; not an upgrade.
+Physical device testing required. Back up artwork and keep the original app installed.
+6a76bca58dea3ff0e77a1dce841feeca731e6478a62c22a12b76685b8fff0111  Qelem-Android-timeline-zoom-preview-arm64.apk
+fb994b9e48a41915834b1c33de5449b34191e29ffa35e2873c45aab3fe70cf1c  Qelem-Windows-timeline-zoom-preview-x64.zip
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v3.2 scheme (APK Signature Scheme v3.2): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+V2 Signer: certificate DN: C=US, O=Android, CN=Android Debug
+V2 Signer: certificate SHA-256 digest: 3d4e380753e277aa8a7cf3bca5bf963d7273e083e47d4500ce89dee8bbc38b4b
+V2 Signer: certificate SHA-1 digest: b9cf0cac3d043ce972b24b6c3518e9a4f2bd3bcb
+V2 Signer: certificate MD5 digest: 00ed03f7e7452e424183a1239544f4ae
+V2 Signer: key algorithm: RSA
+V2 Signer: key size (bits): 2048
+V2 Signer: public key SHA-256 digest: a6dfafe21bb028cb3d7a7524216d7249fcae0467d1dc6e1fbb2e152d506e01c7
+V2 Signer: public key SHA-1 digest: 78a539b31bb66120e3703b7d764cc8c46d621dfc
+V2 Signer: public key MD5 digest: f11e77a6a3c76f0a104740e17bdbaf1b
+package: name='com.qalam.studio.nativepreview.debug' versionCode='10500012' versionName='1.5-preview' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'
+sdkVersion:'28'
+targetSdkVersion:'36'
+application-label:'Qelem'
+native-code: 'arm64-v8a'
