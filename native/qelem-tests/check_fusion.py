@@ -9,7 +9,7 @@ repo = root.parent
 src = root / 'android/app/src/main'
 settings = (root / 'android/app/build.gradle.kts').read_text()
 assert 'applicationId = "com.qalam.studio.nativepreview"' in settings
-assert 'versionName = "1.5-timeline-preview"' in settings
+assert 'versionName = "1.6-preview"' in settings
 assert ET.parse(src / 'res/values/strings.xml').getroot().find("string[@name='app_name']").text == 'Qelem'
 theme = (src / 'java/io/github/artcraftandroid/procraft/ui/Theme.kt').read_text()
 assert 'Color(0xFFBB5800)' in theme and 'accentGiven ?: BrandAccent' in theme
@@ -29,7 +29,7 @@ ui = (src / 'java/io/github/artcraftandroid/procraft/ui/AnimationUi.kt').read_te
 vm = (src / 'java/io/github/artcraftandroid/procraft/canvas/CanvasViewModel.kt').read_text()
 assert 'rememberSaveable(key = "qelem_studio_timeline_v2") { mutableStateOf(roomyForTimeline) }' in ui
 assert 'screenHeightDp >= 360' in ui
-assert 'applicationIdSuffix = ".timeline.debug"' in settings
+assert 'applicationIdSuffix = ".v16.debug"' in settings
 assert 'Reverse preview only' in ui and 'qelemPreviewOrder(qelemRangeSlots(original, bounds), reverse)' in vm and 'playingSlot = slot' in vm
 assert 'Set preview start here' in ui and 'Set preview end here' in ui and 'Preview speed' in ui
 assert 'Storyboard PNG' in (src / 'java/io/github/artcraftandroid/procraft/ui/ActionsPanel.kt').read_text()

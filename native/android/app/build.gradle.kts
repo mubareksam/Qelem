@@ -125,7 +125,7 @@ android {
         targetSdk = 36
         versionCode = appVersionCode
         // A development preview, not the upstream release version and not an update to Qelem 7.x.
-        versionName = "1.5-timeline-preview"
+        versionName = "1.6-preview"
         ndk { abiFilters.addAll(rustAbis) }
     }
 
@@ -144,7 +144,7 @@ android {
         debug {
             // CI debug keys are ephemeral. Install this preview beside previous Qelem builds;
             // never make users remove a build that may contain artwork.
-            applicationIdSuffix = ".timeline.debug"
+            applicationIdSuffix = ".v16.debug"
         }
         release {
             isMinifyEnabled = true
