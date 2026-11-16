@@ -1,0 +1,31 @@
+Qelem post-1.5 Windows and Android screenshot-inspired timeline styling development previews
+Source commit: 0feced3abce5463ec53dfae36bca0660ad0a9042
+Android build: https://github.com/mubareksam/Qelem/actions/runs/43697458597
+Windows build: https://github.com/mubareksam/Qelem/actions/runs/43697458601
+Windows binaries unsigned. Android debug signed and separately packaged; not an upgrade.
+Physical device testing required. Back up artwork and keep the original app installed.
+b79410e15f2fc85f72e96ae191359ba04e4f516907358a4dc72099440b65ad64  Qelem-Android-studio-look-preview-arm64.apk
+ab502da29b0eb5850abaf8faeb8601d4220b6fd36e31e19a13c875fb50bf9a69  Qelem-Windows-studio-look-preview-x64.zip
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v3.2 scheme (APK Signature Scheme v3.2): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+V2 Signer: certificate DN: C=US, O=Android, CN=Android Debug
+V2 Signer: certificate SHA-256 digest: f4988624975bb039af38e7cd2685c8af00da007fe69b3d9be7a48e72257cc607
+V2 Signer: certificate SHA-1 digest: d6fdaf9136bbac0a3568d8859dcd215cd8861919
+V2 Signer: certificate MD5 digest: b5da954296d989564ace969a13514a66
+V2 Signer: key algorithm: RSA
+V2 Signer: key size (bits): 2048
+V2 Signer: public key SHA-256 digest: a85ca067ffb5006cfffb565c5d7dd7a1dcb97b2cad16e29f410fc4ed527467ef
+V2 Signer: public key SHA-1 digest: ce0d577cf1abd3063871635660be71299e8f3148
+V2 Signer: public key MD5 digest: 2706ac49dad66ff5c1f812cd222d50b3
+package: name='com.qalam.studio.nativepreview.debug' versionCode='10500012' versionName='1.5-preview' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'
+sdkVersion:'28'
+targetSdkVersion:'36'
+application-label:'Qelem'
+native-code: 'arm64-v8a'

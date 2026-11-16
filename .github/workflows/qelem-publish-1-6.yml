@@ -1,0 +1,52 @@
+name: Publish Qelem 1.6 Android preview artifact
+on:
+  push:
+    branches: [arena/412bd2e9-prodesign]
+    paths: ['.github/workflows/qelem-publish-1-6.yml']
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: arena/412bd2e9-prodesign
+      - uses: actions/download-artifact@v4
+        with:
+          name: Qelem-native-preview-arm64
+          path: /tmp/qelem-native
+          run-id: 43951212382
+          github-token: ${{ github.token }}
+      - name: Verify and package Android preview
+        run: |
+          set -euo pipefail
+          (cd /tmp/qelem-native && sha256sum -c SHA256SUMS.txt)
+          TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          APK=/tmp/qelem-native/Qelem-native-preview-arm64.apk
+          "$TOOLS/apksigner" verify --verbose --print-certs "$APK" > /tmp/signature.txt
+          "$TOOLS/aapt" dump badging "$APK" > /tmp/badging.txt
+          grep -F "package: name='com.qalam.studio.nativepreview.v16.debug' versionCode='10600012' versionName='1.6-preview'" /tmp/badging.txt
+          grep -F "application-label:'Qelem 1.6 Preview'" /tmp/badging.txt
+          grep -F "native-code: 'arm64-v8a'" /tmp/badging.txt
+          unzip -l "$APK" | grep 'lib/arm64-v8a/libprocraft_core.so'
+          cp "$APK" artifacts/releases/Qelem-1.6-preview-Android-arm64.apk
+          {
+            echo 'Qelem 1.6 Android arm64 preview'
+            echo 'Source commit: c010178adf5d888cf6a1bd6fb0bf836af19474cb'
+            echo 'Android build and tests: https://github.com/mubareksam/Qelem/actions/runs/43951212382'
+            echo 'Debug signed, separate package and separate gallery. Keep old apps installed and back up artwork.'
+            echo 'No physical device, touch, layout, or migration testing performed.'
+            (cd artifacts/releases && sha256sum Qelem-1.6-preview-Android-arm64.apk)
+            cat /tmp/signature.txt
+            grep -E "^(package:|sdkVersion:|targetSdkVersion:|application-label:|native-code:)" /tmp/badging.txt
+          } > artifacts/releases/Qelem-1.6-preview-Android-arm64.txt
+      - name: Commit preview to current branch
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artifacts/releases/Qelem-1.6-preview-Android-arm64.apk artifacts/releases/Qelem-1.6-preview-Android-arm64.txt
+          git commit -m 'Add Qelem 1.6 Android preview'
+          git push origin HEAD:arena/412bd2e9-prodesign

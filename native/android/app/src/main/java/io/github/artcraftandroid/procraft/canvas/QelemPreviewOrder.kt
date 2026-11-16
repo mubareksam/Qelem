@@ -1,0 +1,103 @@
+package io.github.artcraftandroid.procraft.canvas
+
+/** Reverse only the preview order, not the document or export sequence. Held slots remain repeated. */
+internal fun qelemPreviewOrder(slots: List<Int>, reverse: Boolean): List<Int> =
+    if (reverse) slots.asReversed() else slots
+
+/** Map a preview slot back to the unmodified timeline's slot. */
+internal fun qelemTimelineSlot(slot: Int, size: Int, reverse: Boolean): Int =
+    if (reverse) size - 1 - slot else slot
+
+/** Inclusive endpoints are layer IDs so frame insertion/reordering cannot silently retarget them. */
+internal fun qelemPreviewBounds(frames: List<ULong>, first: ULong?, last: ULong?): IntRange? {
+    if (first == null || last == null) return null
+    val a = frames.indexOf(first)
+    val b = frames.indexOf(last)
+    return if (a < 0 || b < a) null else a..b
+}
+
+/** The timeline slot indices in a preview range, including all slots of held frames. */
+internal fun qelemRangeSlots(slots: List<Int>, bounds: IntRange?): List<Int> =
+    slots.indices.filter { i -> bounds == null || slots[i] in bounds }
+
+/** A forward or ping-pong preview cycle, using the core's slot-level bounce semantics. */
+internal fun qelemCycleSlots(slots: Int, pingPong: Boolean): Int =
+    if (slots <= 0) 0 else if (pingPong && slots > 1) (slots.toLong() * 2 - 2).coerceAtMost(Int.MAX_VALUE.toLong()).toInt() else slots
+
+/** Delay for a temporary preview speed; neither project FPS nor exports are changed. */
+internal fun qelemPreviewDelayMs(fps: Int, percent: Int): Long {
+    val rate = fps.coerceIn(1, 60)
+    val speed = if (percent in listOf(50, 100, 200)) percent else 100
+    return (100_000L / (rate * speed)).coerceAtLeast(1L)
+}
+
+/** Move one timeline slot without wrapping, including held slots. Empty timelines stay empty. */
+internal fun qelemStepSlot(current: Int?, count: Int, delta: Int): Int? {
+    if (count <= 0) return null
+    return ((current ?: 0).toLong() + delta.toLong()).coerceIn(0L, (count - 1).toLong()).toInt()
+}
+
+/** Human-readable timeline position using whole frames, not wall-clock playback speed. */
+internal fun qelemTimelineTime(slot: Int, fps: Int): String {
+    val rate = fps.coerceIn(1, 60)
+    val safe = slot.coerceAtLeast(0)
+    val seconds = safe / rate
+    val frame = safe % rate
+    return "%d:%02d:%02d".format(java.util.Locale.ROOT, seconds / 60, seconds % 60, frame)
+}
+
+/** A measured lazy-row item, in the same pixel coordinates as the timeline ruler. */
+internal data class QelemRulerItem(val index: Int, val startPx: Int, val sizePx: Int)
+
+/** Center of a measured slot for the playhead, in the same coordinates as ruler and track. */
+internal fun qelemPlayheadCenter(item: QelemRulerItem?, viewportWidth: Float): Float? {
+    if (item == null || item.sizePx <= 0 || !viewportWidth.isFinite() || viewportWidth < 0f) return null
+    val x = item.startPx.toFloat() + item.sizePx / 2f
+    return x.takeIf { it in 0f..viewportWidth }
+}
+
+/** Select the visible slot under a ruler touch, clamped to its measured visible edges. */
+internal fun qelemRulerSlot(x: Float, total: Int, visible: List<QelemRulerItem>): Int? {
+    if (!x.isFinite() || total <= 0 || visible.isEmpty()) return null
+    val valid = visible.filter { it.index in 0 until total && it.sizePx > 0 }
+    if (valid.isEmpty()) return null
+    val first = valid.minBy { it.startPx }
+    val last = valid.maxBy { it.startPx }
+    if (x < first.startPx) return first.index
+    var previous = first
+    for (item in valid.sortedBy { it.startPx }) {
+        if (x < item.startPx) return previous.index
+        if (x < item.startPx.toLong() + item.sizePx.toLong()) return item.index
+        previous = item
+    }
+    return last.index
+}
+
+/** Held position follows a stable frame ID across reorder/undo, not a changing frame index. */
+internal fun qelemHeldOffset(id: ULong?, remembered: ULong?, offset: Int, frame: Int, slots: List<Int>): Int {
+    if (id == null || id != remembered || frame < 0) return 0
+    return offset.coerceIn(0, (slots.count { it == frame } - 1).coerceAtLeast(0))
+}
+
+/** All held slots share the same frame ID; toggling any of them toggles that frame once. */
+internal fun qelemToggleFrameSelection(selected: Set<ULong>, id: ULong?): Set<ULong> =
+    if (id == null) selected else if (id in selected) selected - id else selected + id
+
+/** Invert the temporary selection among the current visible frame IDs only. */
+internal fun qelemInvertFrameSelection(frames: List<ULong>, selected: Set<ULong>): Set<ULong> =
+    frames.filterNot { it in selected }.toSet()
+
+/** Two discrete timeline zoom levels; ignore noise, invalid input and zero-distance pairs. */
+internal fun qelemTimelinePinchLevel(startSpan: Float, currentSpan: Float): Boolean? {
+    if (!startSpan.isFinite() || !currentSpan.isFinite() || startSpan <= 0f || currentSpan <= 0f) return null
+    val ratio = currentSpan / startSpan
+    return when {
+        ratio >= 1.18f -> true
+        ratio <= 0.84f -> false
+        else -> null
+    }
+}
+
+/** Toggle onion skins while retaining the last nonzero frame count for this session. */
+internal fun qelemToggleOnionFrames(current: UInt, remembered: UInt): Pair<UInt, UInt> =
+    if (current > 0u) 0u to current else remembered.coerceAtLeast(1u) to remembered.coerceAtLeast(1u)

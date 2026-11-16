@@ -1,0 +1,29 @@
+Qelem isolated Android timeline visibility preview
+Source commit: 5238ebd3b8af746a4455f1a5b8cc1dbdc8dd9b41
+Android build and tests: https://github.com/mubareksam/Qelem/actions/runs/43710378202
+Debug signed, separate package and separate gallery. Keep old apps installed and back up artwork.
+No physical device, touch, layout, or migration testing performed.
+6c67de3b9e7a5ceb377ee431544b0f5229f6f630ba85e370f50b433c519aa589  Qelem-Android-timeline-visible-preview-arm64.apk
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v3.2 scheme (APK Signature Scheme v3.2): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+V2 Signer: certificate DN: C=US, O=Android, CN=Android Debug
+V2 Signer: certificate SHA-256 digest: 8401df55e5b3bc36a469fca79cf5e7b549484862df102cb9f3f8d252fcb08a2f
+V2 Signer: certificate SHA-1 digest: 1ba8d3b6f8738a611827534544de74b6652e2700
+V2 Signer: certificate MD5 digest: 6a773d02695fed73f10a0365040c8885
+V2 Signer: key algorithm: RSA
+V2 Signer: key size (bits): 2048
+V2 Signer: public key SHA-256 digest: 753500f3187fbccc49b7f32a3c7651483c53b2e1f9f4cf2bf4513af555c45446
+V2 Signer: public key SHA-1 digest: bb1ac1970c0ae63c0554afacac0e93229ee2e82f
+V2 Signer: public key MD5 digest: abfc22fea7c1d77a181a7daeae601de3
+package: name='com.qalam.studio.nativepreview.timeline.debug' versionCode='10500022' versionName='1.5-timeline-preview' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'
+sdkVersion:'28'
+targetSdkVersion:'36'
+application-label:'Qelem Timeline Preview'
+native-code: 'arm64-v8a'
